@@ -1,0 +1,61 @@
+From 677a7068ef2c8cda04911912b57d5059d75713f0 Mon Sep 17 00:00:00 2001
+From: dblark <dblark@qq.com>
+Date: Sun, 9 Feb 2025 16:36:16 +0800
+Subject: [PATCH 1/6] winemac.drv no flicker
+
+---
+ dlls/winemac.drv/macdrv.h      | 1 +
+ dlls/winemac.drv/macdrv_main.c | 4 ++++
+ dlls/winemac.drv/opengl.c      | 2 +-
+ 3 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/dlls/winemac.drv/macdrv.h b/dlls/winemac.drv/macdrv.h
+index 4457a7e186c..9c6a1a0ac8d 100644
+--- a/dlls/winemac.drv/macdrv.h
++++ b/dlls/winemac.drv/macdrv.h
+@@ -43,6 +43,7 @@
+ extern BOOL allow_vsync;
+ extern BOOL allow_set_gamma;
+ extern BOOL allow_software_rendering;
++extern BOOL force_backing_store;
+ 
+ extern UINT64 app_icon_callback;
+ extern UINT64 app_quit_request_callback;
+diff --git a/dlls/winemac.drv/macdrv_main.c b/dlls/winemac.drv/macdrv_main.c
+index 24f6ac973df..923a6fc2ef5 100644
+--- a/dlls/winemac.drv/macdrv_main.c
++++ b/dlls/winemac.drv/macdrv_main.c
+@@ -59,6 +59,7 @@ int use_precise_scrolling = TRUE;
+ int gl_surface_mode = GL_SURFACE_IN_FRONT_OPAQUE;
+ int retina_enabled = FALSE;
+ int enable_app_nap = FALSE;
++BOOL force_backing_store = FALSE;
+ 
+ UINT64 app_icon_callback = 0;
+ UINT64 app_quit_request_callback = 0;
+@@ -376,6 +377,9 @@ static void setup_options(void)
+     if (!get_config_key(hkey, appkey, "EnableAppNap", buffer, sizeof(buffer)))
+         enable_app_nap = IS_OPTION_TRUE(buffer[0]);
+ 
++    if (!get_config_key(hkey, appkey, "ForceOpenGLBackingStore", buffer, sizeof(buffer)))
++        force_backing_store = IS_OPTION_TRUE(buffer[0]);
++
+     /* Don't use appkey.  The DPI and monitor sizes should be consistent for all
+        processes in the prefix. */
+     if (!get_config_key(hkey, NULL, "RetinaMode", buffer, sizeof(buffer)))
+diff --git a/dlls/winemac.drv/opengl.c b/dlls/winemac.drv/opengl.c
+index ac87cfc1313..68de39f49cd 100644
+--- a/dlls/winemac.drv/opengl.c
++++ b/dlls/winemac.drv/opengl.c
+@@ -1451,7 +1451,7 @@ static BOOL create_context(struct wgl_context *context, CGLContextObj share, uns
+         attribs[n++] = pf->samples;
+     }
+ 
+-    if (pf->backing_store)
++    if (force_backing_store || pf->backing_store)
+         attribs[n++] = kCGLPFABackingStore;
+ 
+     if (core)
+-- 
+2.48.1
+

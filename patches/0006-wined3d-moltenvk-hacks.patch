@@ -1,0 +1,141 @@
+From 961d4ff44c206096f9b04598a44889cd21f1ff1b Mon Sep 17 00:00:00 2001
+From: dblark <dblark@qq.com>
+Date: Sun, 9 Feb 2025 21:26:45 +0800
+Subject: [PATCH 6/6] wined3d moltenvk hacks
+
+---
+ dlls/wined3d/adapter_vk.c | 26 +++++++++++++++++++++++++-
+ dlls/wined3d/directx.c    | 14 +++++++++++++-
+ dlls/wined3d/swapchain.c  |  8 +++++++-
+ dlls/wined3d/wined3d_vk.h |  1 +
+ 4 files changed, 46 insertions(+), 3 deletions(-)
+
+diff --git a/dlls/wined3d/adapter_vk.c b/dlls/wined3d/adapter_vk.c
+index 60546d86597..ee5352e1022 100644
+--- a/dlls/wined3d/adapter_vk.c
++++ b/dlls/wined3d/adapter_vk.c
+@@ -2248,6 +2248,7 @@ static void wined3d_adapter_vk_init_d3d_info(struct wined3d_adapter_vk *adapter_
+     struct wined3d_vertex_caps vertex_caps;
+     unsigned int sample_counts_mask;
+     struct shader_caps shader_caps;
++    bool moltenvk;
+ 
+     get_physical_device_info(adapter_vk, &device_info);
+ 
+@@ -2321,7 +2322,9 @@ static void wined3d_adapter_vk_init_d3d_info(struct wined3d_adapter_vk *adapter_
+ 
+     d3d_info->multisample_draw_location = WINED3D_LOCATION_TEXTURE_RGB;
+ 
+-    vk_info->multiple_viewports = device_info.features2.features.multiViewport;
++    /* HACK: Disable multiple viewports when running with MoltenVK. As of writing, it causes glitches in multiple games. */
++    moltenvk = adapter_vk->driver_properties.driverID == VK_DRIVER_ID_MOLTENVK;
++    if (!moltenvk) vk_info->multiple_viewports = device_info.features2.features.multiViewport;
+     vk_info->dynamic_state2 = device_info.dynamic_state2_features.extendedDynamicState2;
+     vk_info->dynamic_patch_vertex_count = device_info.dynamic_state2_features.extendedDynamicState2PatchControlPoints;
+ 
+@@ -2364,6 +2367,7 @@ static bool wined3d_adapter_vk_init_device_extensions(struct wined3d_adapter_vk
+         {VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME,       ~0u},
+         {VK_EXT_TRANSFORM_FEEDBACK_EXTENSION_NAME,          ~0u},
+         {VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME,    ~0u},
++        {VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME,           VK_API_VERSION_1_2},
+         {VK_KHR_MAINTENANCE1_EXTENSION_NAME,                VK_API_VERSION_1_1, true},
+         {VK_KHR_MAINTENANCE2_EXTENSION_NAME,                VK_API_VERSION_1_1},
+         {VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME,VK_API_VERSION_1_2},
+@@ -2502,12 +2506,32 @@ static BOOL wined3d_adapter_vk_init(struct wined3d_adapter_vk *adapter_vk,
+     properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+     properties2.pNext = &id_properties;
+ 
++    memset(&adapter_vk->driver_properties, 0, sizeof(adapter_vk->driver_properties));
++    adapter_vk->driver_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES;
++    id_properties.pNext = &adapter_vk->driver_properties;
++
+     if (vk_info->vk_ops.vkGetPhysicalDeviceProperties2)
+         VK_CALL(vkGetPhysicalDeviceProperties2(adapter_vk->physical_device, &properties2));
+     else
+         VK_CALL(vkGetPhysicalDeviceProperties(adapter_vk->physical_device, &properties2.properties));
+     adapter_vk->device_limits = properties2.properties.limits;
+ 
++    /* CW HACK 18311: Use the Vulkan renderer on macOS for d3d10/11. */
++    if (wined3d_settings.renderer == WINED3D_RENDERER_AUTO)
++    {
++        bool d3d10 = !(wined3d_creation_flags & WINED3D_PIXEL_CENTER_INTEGER);
++        bool moltenvk = adapter_vk->driver_properties.driverID == VK_DRIVER_ID_MOLTENVK;
++
++        if (!moltenvk || !d3d10)
++        {
++            if (!moltenvk)
++                TRACE("Not running on MoltenVK, defaulting to the OpenGL backend.\n");
++            if (!d3d10)
++                TRACE("Application using < d3d10 API, defaulting to the OpenGL backend.\n");
++            goto fail_vulkan;
++        }
++    }
++
+     VK_CALL(vkGetPhysicalDeviceMemoryProperties(adapter_vk->physical_device, &adapter_vk->memory_properties));
+ 
+     if (id_properties.deviceLUIDValid)
+diff --git a/dlls/wined3d/directx.c b/dlls/wined3d/directx.c
+index dfda5751e98..ebec9de755a 100644
+--- a/dlls/wined3d/directx.c
++++ b/dlls/wined3d/directx.c
+@@ -3458,13 +3458,25 @@ done:
+ 
+ static struct wined3d_adapter *wined3d_adapter_create(unsigned int ordinal, DWORD wined3d_creation_flags)
+ {
++    struct wined3d_adapter *adapter = NULL;
++
+     if (wined3d_creation_flags & WINED3D_NO3D)
+         return wined3d_adapter_no3d_create(ordinal, wined3d_creation_flags);
+ 
+     if (wined3d_settings.renderer == WINED3D_RENDERER_VULKAN)
+         return wined3d_adapter_vk_create(ordinal, wined3d_creation_flags);
+ 
+-    return wined3d_adapter_gl_create(ordinal, wined3d_creation_flags);
++    if (wined3d_settings.renderer == WINED3D_RENDERER_OPENGL)
++        return wined3d_adapter_gl_create(ordinal, wined3d_creation_flags);
++
++    /* CW HACK 18311: Use the Vulkan renderer on macOS. */
++    if ((adapter = wined3d_adapter_vk_create(ordinal, wined3d_creation_flags)))
++        ERR_(winediag)("Using the Vulkan renderer for d3d10/11 applications.\n");
++
++    if (!adapter)
++        adapter = wined3d_adapter_gl_create(ordinal, wined3d_creation_flags);
++
++    return adapter;
+ }
+ 
+ static void STDMETHODCALLTYPE wined3d_null_wined3d_object_destroyed(void *parent) {}
+diff --git a/dlls/wined3d/swapchain.c b/dlls/wined3d/swapchain.c
+index 6b2ad8d6954..37a6163fc8d 100644
+--- a/dlls/wined3d/swapchain.c
++++ b/dlls/wined3d/swapchain.c
+@@ -917,7 +917,13 @@ static HRESULT wined3d_swapchain_vk_create_vulkan_swapchain(struct wined3d_swapc
+         goto fail;
+     }
+ 
+-    image_count = desc->backbuffer_count;
++    /* For CW bug 18838. Create MoltenVK swapchains with 3 images, as
++     * recommended by the MoltenVK documentation. Performance of full-screen
++     * swapchains is atrocious with the only other supported image count of 2. */
++    if (adapter_vk->driver_properties.driverID == VK_DRIVER_ID_MOLTENVK)
++        image_count = 3;
++    else
++        image_count = desc->backbuffer_count;
+     if (image_count < surface_caps.minImageCount)
+         image_count = surface_caps.minImageCount;
+     else if (surface_caps.maxImageCount && image_count > surface_caps.maxImageCount)
+diff --git a/dlls/wined3d/wined3d_vk.h b/dlls/wined3d/wined3d_vk.h
+index a9f535fa1bd..b0a45c2c06b 100644
+--- a/dlls/wined3d/wined3d_vk.h
++++ b/dlls/wined3d/wined3d_vk.h
+@@ -732,6 +732,7 @@ struct wined3d_adapter_vk
+ 
+     VkPhysicalDeviceLimits device_limits;
+     VkPhysicalDeviceMemoryProperties memory_properties;
++    VkPhysicalDeviceDriverProperties driver_properties;
+ };
+ 
+ static inline struct wined3d_adapter_vk *wined3d_adapter_vk(struct wined3d_adapter *adapter)
+-- 
+2.48.1
+
