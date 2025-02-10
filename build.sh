@@ -3,8 +3,7 @@ set -e
 
 export WINE_MAIN_VERSION="10.x" # 10.0, 9.x, 9.0, 8.x, 8.0
 
-export JOB_COUNT=12
-# export JOB_COUNT=$(sysctl -n hw.logicalcpu)
+export JOB_COUNT=$(sysctl -n hw.logicalcpu)
 
 export ROOT=$(pwd)
 export BUILDROOT=$ROOT/build

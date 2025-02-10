@@ -1,6 +1,6 @@
-The dependencies: (See also <https://github.com/Gcenx/macports-wine/blob/main/emulators/wine-devel/Portfile>)
+Install dependencies: (See also <https://github.com/Gcenx/macports-wine/blob/main/emulators/wine-devel/Portfile>)
 
-build:
+for build:
 
 ```bash
 brew install bison \
@@ -10,7 +10,7 @@ brew install bison \
 brew install --cask gstreamer-development
 ```
 
-runtime:
+for runtime:
 
 ```bash
 brew install freetype \
@@ -18,6 +18,12 @@ brew install freetype \
              gnutls \
              sdl2
 brew install --cask gstreamer-runtime
+```
+
+and ccache:
+
+```bash
+brew install ccache
 ```
 
 Then run `./build.sh`.
