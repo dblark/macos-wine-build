@@ -1,7 +1,7 @@
 From 961d4ff44c206096f9b04598a44889cd21f1ff1b Mon Sep 17 00:00:00 2001
 From: dblark <dblark@qq.com>
 Date: Sun, 9 Feb 2025 21:26:45 +0800
-Subject: [PATCH 6/6] wined3d moltenvk hacks
+Subject: [PATCH 6/7] wined3d moltenvk hacks
 
 ---
  dlls/wined3d/adapter_vk.c | 26 +++++++++++++++++++++++++-

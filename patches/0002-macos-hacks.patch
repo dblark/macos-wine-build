@@ -1,7 +1,7 @@
 From 02da67a7cd16b274ccefd9910a663e1f01e27589 Mon Sep 17 00:00:00 2001
 From: dblark <dblark@qq.com>
 Date: Sun, 9 Feb 2025 16:36:47 +0800
-Subject: [PATCH 2/6] macos hacks
+Subject: [PATCH 2/7] macos hacks
 
 ---
  dlls/kernelbase/process.c       |  45 ++++

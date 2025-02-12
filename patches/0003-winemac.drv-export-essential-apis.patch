@@ -1,7 +1,7 @@
 From 9c4c027275ebb85b1c5b90ef074521a4f387123f Mon Sep 17 00:00:00 2001
 From: dblark <dblark@qq.com>
 Date: Sun, 9 Feb 2025 16:37:07 +0800
-Subject: [PATCH 3/6] winemac.drv export essential apis
+Subject: [PATCH 3/7] winemac.drv export essential apis
 
 ---
  dlls/winemac.drv/macdrv.h       |  7 +++++--

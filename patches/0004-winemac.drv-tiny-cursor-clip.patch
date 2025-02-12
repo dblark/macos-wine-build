@@ -1,7 +1,7 @@
 From 68078135a6a8939f8715414364d17e206f842a5d Mon Sep 17 00:00:00 2001
 From: dblark <dblark@qq.com>
 Date: Sun, 9 Feb 2025 16:39:03 +0800
-Subject: [PATCH 4/6] winemac.drv tiny cursor clip
+Subject: [PATCH 4/7] winemac.drv tiny cursor clip
 
 ---
  dlls/winemac.drv/macdrv_cocoa.h | 1 +

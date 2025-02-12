@@ -72,6 +72,7 @@ git apply $ROOT/patches/0003-winemac.drv-export-essential-apis.patch
 git apply $ROOT/patches/0004-winemac.drv-tiny-cursor-clip.patch
 git apply $ROOT/patches/0005-add-msync.patch
 git apply $ROOT/patches/0006-wined3d-moltenvk-hacks.patch
+git apply $ROOT/patches/0007-opengl-macos-hacks.patch
 popd
 
 export WINE_CONFIGURE=$SOURCESROOT/$WINE_VERSION/configure

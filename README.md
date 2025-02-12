@@ -4,6 +4,7 @@ for build:
 
 ```bash
 brew install bison \
+             ccache \
              gettext \
              mingw-w64 \
              pkg-config
@@ -20,15 +21,11 @@ brew install freetype \
 brew install --cask gstreamer-runtime
 ```
 
-and ccache:
-
-```bash
-brew install ccache
-```
-
 Then run `./build.sh`.
 
 Copy the bundle `$ENGINE_NAME.tar.7z` to `$HOME/Library/Applications Support/Kegworks/Engines` to use the engine.
+
+Make sure you have installed runtime dependencies when you use.
 
 Thanks to
 

@@ -1,7 +1,7 @@
 From 677a7068ef2c8cda04911912b57d5059d75713f0 Mon Sep 17 00:00:00 2001
 From: dblark <dblark@qq.com>
 Date: Sun, 9 Feb 2025 16:36:16 +0800
-Subject: [PATCH 1/6] winemac.drv no flicker
+Subject: [PATCH 1/7] winemac.drv no flicker
 
 ---
  dlls/winemac.drv/macdrv.h      | 1 +
