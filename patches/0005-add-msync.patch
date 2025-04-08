@@ -1,7 +1,7 @@
-From aa7da2d6f7fc5cd33a782304a81218713176eba9 Mon Sep 17 00:00:00 2001
-From: dblark <dblark@qq.com>
-Date: Sun, 9 Feb 2025 21:26:13 +0800
-Subject: [PATCH 5/7] add msync
+From 14306a5448ae992ba150c2b350663bcd8d117410 Mon Sep 17 00:00:00 2001
+From: dblark <dblark@stu.pku.edu.cn>
+Date: Tue, 8 Apr 2025 13:39:27 +0800
+Subject: [PATCH 5/5] add msync
 
 ---
  dlls/ntdll/Makefile.in         |    1 +
@@ -63,10 +63,10 @@ Subject: [PATCH 5/7] add msync
  create mode 100644 server/msync.h
 
 diff --git a/dlls/ntdll/Makefile.in b/dlls/ntdll/Makefile.in
-index 37bd6c86e31..89ee0286daa 100644
+index f7558bb5d86..f9407573648 100644
 --- a/dlls/ntdll/Makefile.in
 +++ b/dlls/ntdll/Makefile.in
-@@ -49,6 +49,7 @@ SOURCES = \
+@@ -50,6 +50,7 @@ SOURCES = \
  	unix/debug.c \
  	unix/env.c \
  	unix/file.c \
@@ -75,7 +75,7 @@ index 37bd6c86e31..89ee0286daa 100644
  	unix/loadorder.c \
  	unix/process.c \
 diff --git a/dlls/ntdll/unix/loader.c b/dlls/ntdll/unix/loader.c
-index 3cc4eae31ff..d766e388357 100644
+index 7fc48a3523b..3a73d8cbb96 100644
 --- a/dlls/ntdll/unix/loader.c
 +++ b/dlls/ntdll/unix/loader.c
 @@ -90,6 +90,7 @@
@@ -86,7 +86,7 @@ index 3cc4eae31ff..d766e388357 100644
  #include "wine/list.h"
  #include "ntsyscalls.h"
  #include "wine/debug.h"
-@@ -1900,6 +1901,7 @@ static void start_main_thread(void)
+@@ -1844,6 +1845,7 @@ static void start_main_thread(void)
      signal_alloc_thread( teb );
      dbg_init();
      startup_info_size = server_init_process();
@@ -1846,7 +1846,7 @@ index 00000000000..3e6eb2c8b1e
 +extern NTSTATUS msync_signal_and_wait( HANDLE signal, HANDLE wait,
 +    BOOLEAN alertable, const LARGE_INTEGER *timeout );
 diff --git a/dlls/ntdll/unix/server.c b/dlls/ntdll/unix/server.c
-index b40e7c2a1d7..83929e23a95 100644
+index a6e07215479..5e4628c975c 100644
 --- a/dlls/ntdll/unix/server.c
 +++ b/dlls/ntdll/unix/server.c
 @@ -79,6 +79,7 @@
@@ -2062,7 +2062,7 @@ index 2b01aaf83b8..a6d83c945a0 100644
             we never return STATUS_NO_YIELD_PERFORMED */
          if ((status = server_wait( NULL, 0, SELECT_INTERRUPTIBLE | SELECT_ALERTABLE, timeout )) == STATUS_TIMEOUT)
 diff --git a/dlls/ntdll/unix/unix_private.h b/dlls/ntdll/unix/unix_private.h
-index f840045f841..25fd59e934a 100644
+index b66fa9df666..e499bc96f57 100644
 --- a/dlls/ntdll/unix/unix_private.h
 +++ b/dlls/ntdll/unix/unix_private.h
 @@ -103,6 +103,8 @@ struct ntdll_thread_data
@@ -2075,10 +2075,10 @@ index f840045f841..25fd59e934a 100644
      int                reply_fd;      /* fd for receiving server replies */
      int                wait_fd[2];    /* fd for sleeping server requests */
 diff --git a/dlls/ntdll/unix/virtual.c b/dlls/ntdll/unix/virtual.c
-index 2e0a28c826c..927f319e45a 100644
+index 3580ec0ad0c..181f40fdcb4 100644
 --- a/dlls/ntdll/unix/virtual.c
 +++ b/dlls/ntdll/unix/virtual.c
-@@ -3722,6 +3722,8 @@ static TEB *init_teb( void *ptr, BOOL is_wow )
+@@ -3868,6 +3868,8 @@ static TEB *init_teb( void *ptr, BOOL is_wow )
      teb->StaticUnicodeString.Buffer = teb->StaticUnicodeBuffer;
      teb->StaticUnicodeString.MaximumLength = sizeof(teb->StaticUnicodeBuffer);
      thread_data = (struct ntdll_thread_data *)&teb->GdiTebBatch;
@@ -2088,10 +2088,10 @@ index 2e0a28c826c..927f319e45a 100644
      thread_data->reply_fd   = -1;
      thread_data->wait_fd[0] = -1;
 diff --git a/include/wine/server_protocol.h b/include/wine/server_protocol.h
-index a39ab123970..e17ca990c8b 100644
+index 3cdc9375e2d..f3dbb2aed70 100644
 --- a/include/wine/server_protocol.h
 +++ b/include/wine/server_protocol.h
-@@ -5882,6 +5882,92 @@ struct set_keyboard_repeat_reply
+@@ -5902,6 +5902,92 @@ struct set_keyboard_repeat_reply
      char __pad_12[4];
  };
  
@@ -2184,8 +2184,8 @@ index a39ab123970..e17ca990c8b 100644
  
  enum request
  {
-@@ -6177,6 +6263,11 @@ enum request
-     REQ_resume_process,
+@@ -6198,6 +6284,11 @@ enum request
+     REQ_get_next_process,
      REQ_get_next_thread,
      REQ_set_keyboard_repeat,
 +    REQ_create_msync,
@@ -2196,8 +2196,8 @@ index a39ab123970..e17ca990c8b 100644
      REQ_NB_REQUESTS
  };
  
-@@ -6476,6 +6567,11 @@ union generic_request
-     struct resume_process_request resume_process_request;
+@@ -6498,6 +6589,11 @@ union generic_request
+     struct get_next_process_request get_next_process_request;
      struct get_next_thread_request get_next_thread_request;
      struct set_keyboard_repeat_request set_keyboard_repeat_request;
 +    struct create_msync_request create_msync_request;
@@ -2208,8 +2208,8 @@ index a39ab123970..e17ca990c8b 100644
  };
  union generic_reply
  {
-@@ -6773,6 +6869,11 @@ union generic_reply
-     struct resume_process_reply resume_process_reply;
+@@ -6796,6 +6892,11 @@ union generic_reply
+     struct get_next_process_reply get_next_process_reply;
      struct get_next_thread_reply get_next_thread_reply;
      struct set_keyboard_repeat_reply set_keyboard_repeat_reply;
 +    struct create_msync_reply create_msync_reply;
@@ -2219,9 +2219,9 @@ index a39ab123970..e17ca990c8b 100644
 +    struct get_msync_apc_idx_reply get_msync_apc_idx_reply;
  };
  
- #define SERVER_PROTOCOL_VERSION 855
+ #define SERVER_PROTOCOL_VERSION 863
 diff --git a/server/Makefile.in b/server/Makefile.in
-index 7e571ac2ba6..dabe3fe83a8 100644
+index 6e4e68d6ebf..2fc885b61c3 100644
 --- a/server/Makefile.in
 +++ b/server/Makefile.in
 @@ -14,6 +14,7 @@ SOURCES = \
@@ -2309,7 +2309,7 @@ index 99680ae0680..b4adeb885f3 100644
      no_signal,                 /* signal */
      no_get_fd,                 /* get_fd */
 diff --git a/server/console.c b/server/console.c
-index c3e7bf57e92..a640762cd28 100644
+index de6f4e73e31..d2ba1eb6e5d 100644
 --- a/server/console.c
 +++ b/server/console.c
 @@ -41,6 +41,7 @@
@@ -2320,7 +2320,7 @@ index c3e7bf57e92..a640762cd28 100644
  
  struct screen_buffer;
  
-@@ -81,6 +82,7 @@ static const struct object_ops console_ops =
+@@ -84,6 +85,7 @@ static const struct object_ops console_ops =
      console_add_queue,                /* add_queue */
      remove_queue,                     /* remove_queue */
      console_signaled,                 /* signaled */
@@ -2328,7 +2328,7 @@ index c3e7bf57e92..a640762cd28 100644
      no_satisfied,                     /* satisfied */
      no_signal,                        /* signal */
      console_get_fd,                   /* get_fd */
-@@ -139,11 +141,13 @@ struct console_server
+@@ -142,11 +144,13 @@ struct console_server
      unsigned int          once_input : 1; /* flag if input thread has already been requested */
      int                   term_fd;        /* UNIX terminal fd */
      struct termios        termios;        /* original termios */
@@ -2342,7 +2342,7 @@ index c3e7bf57e92..a640762cd28 100644
  static struct fd *console_server_get_fd( struct object *obj );
  static struct object *console_server_lookup_name( struct object *obj, struct unicode_str *name,
                                                  unsigned int attr, struct object *root );
-@@ -158,6 +162,7 @@ static const struct object_ops console_server_ops =
+@@ -161,6 +165,7 @@ static const struct object_ops console_server_ops =
      add_queue,                        /* add_queue */
      remove_queue,                     /* remove_queue */
      console_server_signaled,          /* signaled */
@@ -2350,15 +2350,15 @@ index c3e7bf57e92..a640762cd28 100644
      no_satisfied,                     /* satisfied */
      no_signal,                        /* signal */
      console_server_get_fd,            /* get_fd */
-@@ -227,6 +232,7 @@ static const struct object_ops screen_buffer_ops =
-     screen_buffer_add_queue,          /* add_queue */
-     NULL,                             /* remove_queue */
-     NULL,                             /* signaled */
+@@ -230,6 +235,7 @@ static const struct object_ops screen_buffer_ops =
+     add_queue,                        /* add_queue */
+     remove_queue,                     /* remove_queue */
+     screen_buffer_signaled,           /* signaled */
 +    NULL,                             /* get_msync_idx */
-     NULL,                             /* satisfied */
+     no_satisfied,                     /* satisfied */
      no_signal,                        /* signal */
      screen_buffer_get_fd,             /* get_fd */
-@@ -276,6 +282,7 @@ static const struct object_ops console_device_ops =
+@@ -279,6 +285,7 @@ static const struct object_ops console_device_ops =
      no_add_queue,                     /* add_queue */
      NULL,                             /* remove_queue */
      NULL,                             /* signaled */
@@ -2366,23 +2366,23 @@ index c3e7bf57e92..a640762cd28 100644
      no_satisfied,                     /* satisfied */
      no_signal,                        /* signal */
      no_get_fd,                        /* get_fd */
-@@ -313,6 +320,7 @@ static const struct object_ops console_input_ops =
-     console_input_add_queue,          /* add_queue */
-     NULL,                             /* remove_queue */
-     NULL,                             /* signaled */
+@@ -318,6 +325,7 @@ static const struct object_ops console_input_ops =
+     add_queue,                        /* add_queue */
+     remove_queue,                     /* remove_queue */
+     console_input_signaled,           /* signaled */
 +    NULL,                             /* get_msync_idx */
      no_satisfied,                     /* satisfied */
      no_signal,                        /* signal */
      console_input_get_fd,             /* get_fd */
-@@ -370,6 +378,7 @@ static const struct object_ops console_output_ops =
-     console_output_add_queue,         /* add_queue */
-     NULL,                             /* remove_queue */
-     NULL,                             /* signaled */
+@@ -377,6 +385,7 @@ static const struct object_ops console_output_ops =
+     add_queue,                        /* add_queue */
+     remove_queue,                     /* remove_queue */
+     console_output_signaled,          /* signaled */
 +    NULL,                             /* get_msync_idx */
      no_satisfied,                     /* satisfied */
      no_signal,                        /* signal */
      console_output_get_fd,            /* get_fd */
-@@ -428,6 +437,7 @@ static const struct object_ops console_connection_ops =
+@@ -435,6 +444,7 @@ static const struct object_ops console_connection_ops =
      no_add_queue,                     /* add_queue */
      NULL,                             /* remove_queue */
      NULL,                             /* signaled */
@@ -2390,7 +2390,7 @@ index c3e7bf57e92..a640762cd28 100644
      no_satisfied,                     /* satisfied */
      no_signal,                        /* signal */
      console_connection_get_fd,        /* get_fd */
-@@ -590,6 +600,10 @@ static void disconnect_console_server( struct console_server *server )
+@@ -598,6 +608,10 @@ static void disconnect_console_server( struct console_server *server )
          list_remove( &call->entry );
          console_host_ioctl_terminate( call, STATUS_CANCELLED );
      }
@@ -2401,7 +2401,7 @@ index c3e7bf57e92..a640762cd28 100644
      while (!list_empty( &server->read_queue ))
      {
          struct console_host_ioctl *call = LIST_ENTRY( list_head( &server->read_queue ), struct console_host_ioctl, entry );
-@@ -878,6 +892,7 @@ static void console_server_destroy( struct object *obj )
+@@ -892,6 +906,7 @@ static void console_server_destroy( struct object *obj )
      assert( obj->ops == &console_server_ops );
      disconnect_console_server( server );
      if (server->fd) release_object( server->fd );
@@ -2409,7 +2409,7 @@ index c3e7bf57e92..a640762cd28 100644
  }
  
  static struct object *console_server_lookup_name( struct object *obj, struct unicode_str *name,
-@@ -925,6 +940,13 @@ static int console_server_signaled( struct object *obj, struct wait_queue_entry
+@@ -939,6 +954,13 @@ static int console_server_signaled( struct object *obj, struct wait_queue_entry
      return !server->console || !list_empty( &server->queue );
  }
  
@@ -2423,7 +2423,7 @@ index c3e7bf57e92..a640762cd28 100644
  static struct fd *console_server_get_fd( struct object* obj )
  {
      struct console_server *server = (struct console_server*)obj;
-@@ -957,6 +979,9 @@ static struct object *create_console_server( void )
+@@ -971,6 +993,9 @@ static struct object *create_console_server( void )
      }
      allow_fd_caching(server->fd);
  
@@ -2433,7 +2433,7 @@ index c3e7bf57e92..a640762cd28 100644
      return &server->obj;
  }
  
-@@ -1569,6 +1594,10 @@ DECL_HANDLER(get_next_console_request)
+@@ -1608,6 +1633,10 @@ DECL_HANDLER(get_next_console_request)
          /* set result of previous ioctl */
          ioctl = LIST_ENTRY( list_head( &server->queue ), struct console_host_ioctl, entry );
          list_remove( &ioctl->entry );
@@ -2444,7 +2444,7 @@ index c3e7bf57e92..a640762cd28 100644
      }
  
      if (ioctl)
-@@ -1655,5 +1684,9 @@ DECL_HANDLER(get_next_console_request)
+@@ -1694,5 +1723,9 @@ DECL_HANDLER(get_next_console_request)
          set_error( STATUS_PENDING );
      }
  
@@ -2475,7 +2475,7 @@ index 39a740e07e5..b49c03b1979 100644
      no_signal,                     /* signal */
      no_get_fd,                     /* get_fd */
 diff --git a/server/device.c b/server/device.c
-index cab09700d8c..da932dd3d06 100644
+index 1f93cca437d..199df73b189 100644
 --- a/server/device.c
 +++ b/server/device.c
 @@ -38,6 +38,7 @@
@@ -2735,7 +2735,7 @@ index ad7c09acc99..dbb150de32f 100644
                                          unsigned int attr, const struct security_descriptor *sd )
  {
 diff --git a/server/fd.c b/server/fd.c
-index ce32e7f8397..11cb69184f8 100644
+index bb0e90d99d0..62b5993d235 100644
 --- a/server/fd.c
 +++ b/server/fd.c
 @@ -94,6 +94,7 @@
@@ -2786,7 +2786,7 @@ index ce32e7f8397..11cb69184f8 100644
      no_satisfied,               /* satisfied */
      no_signal,                  /* signal */
      no_get_fd,                  /* get_fd */
-@@ -1572,6 +1578,9 @@ static void fd_destroy( struct object *obj )
+@@ -1584,6 +1590,9 @@ static void fd_destroy( struct object *obj )
          if (fd->unix_fd != -1) close( fd->unix_fd );
          free( fd->unix_name );
      }
@@ -2796,7 +2796,7 @@ index ce32e7f8397..11cb69184f8 100644
  }
  
  /* check if the desired access is possible without violating */
-@@ -1690,12 +1699,16 @@ static struct fd *alloc_fd_object(void)
+@@ -1702,12 +1711,16 @@ static struct fd *alloc_fd_object(void)
      fd->poll_index = -1;
      fd->completion = NULL;
      fd->comp_flags = 0;
@@ -2813,7 +2813,7 @@ index ce32e7f8397..11cb69184f8 100644
      if ((fd->poll_index = add_poll_user( fd )) == -1)
      {
          release_object( fd );
-@@ -1731,11 +1744,15 @@ struct fd *alloc_pseudo_fd( const struct fd_ops *fd_user_ops, struct object *use
+@@ -1743,11 +1756,15 @@ struct fd *alloc_pseudo_fd( const struct fd_ops *fd_user_ops, struct object *use
      fd->completion = NULL;
      fd->comp_flags = 0;
      fd->no_fd_status = STATUS_BAD_DEVICE_TYPE;
@@ -2829,7 +2829,7 @@ index ce32e7f8397..11cb69184f8 100644
      return fd;
  }
  
-@@ -2141,6 +2158,9 @@ void set_fd_signaled( struct fd *fd, int signaled )
+@@ -2153,6 +2170,9 @@ void set_fd_signaled( struct fd *fd, int signaled )
      if (fd->comp_flags & FILE_SKIP_SET_EVENT_ON_HANDLE) return;
      fd->signaled = signaled;
      if (signaled) wake_up( fd->user, 0 );
@@ -2839,7 +2839,7 @@ index ce32e7f8397..11cb69184f8 100644
  }
  
  /* check if events are pending and if yes return which one(s) */
-@@ -2166,6 +2186,15 @@ int default_fd_signaled( struct object *obj, struct wait_queue_entry *entry )
+@@ -2178,6 +2198,15 @@ int default_fd_signaled( struct object *obj, struct wait_queue_entry *entry )
      return ret;
  }
  
@@ -2868,7 +2868,7 @@ index 8f6566a0077..74bb8336bbb 100644
      no_signal,                    /* signal */
      file_get_fd,                  /* get_fd */
 diff --git a/server/file.h b/server/file.h
-index 4f5fc7b26f1..12ea61be61b 100644
+index 59b73c0245c..0d31bc57000 100644
 --- a/server/file.h
 +++ b/server/file.h
 @@ -109,6 +109,7 @@ extern char *dup_fd_name( struct fd *root, const char *name ) __WINE_DEALLOC(fre
@@ -2880,7 +2880,7 @@ index 4f5fc7b26f1..12ea61be61b 100644
  extern void default_poll_event( struct fd *fd, int event );
  extern void fd_cancel_async( struct fd *fd, struct async *async );
 diff --git a/server/handle.c b/server/handle.c
-index c43b19c1160..84f60e57cb8 100644
+index 8968df73647..30e53d14416 100644
 --- a/server/handle.c
 +++ b/server/handle.c
 @@ -126,6 +126,7 @@ static const struct object_ops handle_table_ops =
@@ -2965,7 +2965,7 @@ index e014ec535ff..cc372940ea3 100644
      set_current_time();
      init_signals();
 diff --git a/server/mapping.c b/server/mapping.c
-index 4bdd7c5080a..a06660ee2c4 100644
+index 247b28cf6f5..0b939117def 100644
 --- a/server/mapping.c
 +++ b/server/mapping.c
 @@ -67,6 +67,7 @@ static const struct object_ops ranges_ops =
@@ -4129,7 +4129,7 @@ index 1058f9bfb0a..bdcc56619f8 100644
      void (*satisfied)(struct object *,struct wait_queue_entry *);
      /* signal an object */
 diff --git a/server/process.c b/server/process.c
-index e06350f7311..1aaabb2bc6b 100644
+index b161e3394ba..a3a06faef22 100644
 --- a/server/process.c
 +++ b/server/process.c
 @@ -63,6 +63,7 @@
@@ -4213,7 +4213,7 @@ index e06350f7311..1aaabb2bc6b 100644
  {
      access = default_map_access( obj, access );
 diff --git a/server/process.h b/server/process.h
-index 96814ab7cf8..0299eba9582 100644
+index e49529b06fa..0daf49ce171 100644
 --- a/server/process.h
 +++ b/server/process.h
 @@ -86,6 +86,7 @@ struct process
@@ -4225,10 +4225,10 @@ index 96814ab7cf8..0299eba9582 100644
  
  /* process functions */
 diff --git a/server/protocol.def b/server/protocol.def
-index 292303c385f..aebb999d2c3 100644
+index 63bb0111473..a3a784c5939 100644
 --- a/server/protocol.def
 +++ b/server/protocol.def
-@@ -4079,3 +4079,57 @@ struct handle_info
+@@ -4094,3 +4094,57 @@ struct handle_info
  @REPLY
      int enable;                /* previous state of auto-repeat enable */
  @END
@@ -4287,7 +4287,7 @@ index 292303c385f..aebb999d2c3 100644
 +    unsigned int shm_idx;
 +@END
 diff --git a/server/queue.c b/server/queue.c
-index 3e19d579eec..c4536fbcad7 100644
+index 520659d377c..d8b4af87ef9 100644
 --- a/server/queue.c
 +++ b/server/queue.c
 @@ -44,6 +44,7 @@
@@ -4360,7 +4360,7 @@ index 3e19d579eec..c4536fbcad7 100644
  }
  
  /* check if message is matched by the filter */
-@@ -1228,6 +1242,10 @@ static int is_queue_hung( struct msg_queue *queue )
+@@ -1262,6 +1276,10 @@ static int is_queue_hung( struct msg_queue *queue )
          if (get_wait_queue_thread(entry)->queue == queue)
              return 0;  /* thread is waiting on queue -> not hung */
      }
@@ -4371,7 +4371,7 @@ index 3e19d579eec..c4536fbcad7 100644
      return 1;
  }
  
-@@ -1282,6 +1300,13 @@ static int msg_queue_signaled( struct object *obj, struct wait_queue_entry *entr
+@@ -1316,6 +1334,13 @@ static int msg_queue_signaled( struct object *obj, struct wait_queue_entry *entr
      return ret || is_signaled( queue );
  }
  
@@ -4385,7 +4385,7 @@ index 3e19d579eec..c4536fbcad7 100644
  static void msg_queue_satisfied( struct object *obj, struct wait_queue_entry *entry )
  {
      struct msg_queue *queue = (struct msg_queue *)obj;
-@@ -1338,6 +1363,8 @@ static void msg_queue_destroy( struct object *obj )
+@@ -1372,6 +1397,8 @@ static void msg_queue_destroy( struct object *obj )
      if (queue->hooks) release_object( queue->hooks );
      if (queue->fd) release_object( queue->fd );
      if (queue->shared) free_shared_object( queue->shared );
@@ -4394,7 +4394,7 @@ index 3e19d579eec..c4536fbcad7 100644
  }
  
  static void msg_queue_poll_event( struct fd *fd, int event )
-@@ -3116,6 +3143,9 @@ DECL_HANDLER(set_queue_mask)
+@@ -3160,6 +3187,9 @@ DECL_HANDLER(set_queue_mask)
              }
              else wake_up( &queue->obj, 0 );
          }
@@ -4404,7 +4404,7 @@ index 3e19d579eec..c4536fbcad7 100644
      }
  }
  
-@@ -3136,6 +3166,9 @@ DECL_HANDLER(get_queue_status)
+@@ -3180,6 +3210,9 @@ DECL_HANDLER(get_queue_status)
              shared->changed_bits &= ~req->clear_bits;
          }
          SHARED_WRITE_END;
@@ -4414,7 +4414,7 @@ index 3e19d579eec..c4536fbcad7 100644
      }
      else reply->wake_bits = reply->changed_bits = 0;
  }
-@@ -3393,6 +3426,11 @@ DECL_HANDLER(get_message)
+@@ -3437,6 +3470,11 @@ DECL_HANDLER(get_message)
      SHARED_WRITE_END;
  
      set_error( STATUS_PENDING );  /* FIXME */
@@ -4426,7 +4426,7 @@ index 3e19d579eec..c4536fbcad7 100644
  }
  
  
-@@ -4167,6 +4205,23 @@ DECL_HANDLER(update_rawinput_devices)
+@@ -4211,6 +4249,23 @@ DECL_HANDLER(update_rawinput_devices)
      }
  }
  
@@ -4451,7 +4451,7 @@ index 3e19d579eec..c4536fbcad7 100644
  {
      struct desktop *desktop;
 diff --git a/server/registry.c b/server/registry.c
-index 3f02faaaefd..f0646f87056 100644
+index c60c737feff..bec3a661b8f 100644
 --- a/server/registry.c
 +++ b/server/registry.c
 @@ -180,6 +180,7 @@ static const struct object_ops key_ops =
@@ -4475,11 +4475,11 @@ index 2254315b79e..7e3785efb3e 100644
      no_signal,                     /* signal */
      no_get_fd,                     /* get_fd */
 diff --git a/server/request_handlers.h b/server/request_handlers.h
-index fd39842df56..4d3b9344578 100644
+index 2afc9707869..e531bc1e7be 100644
 --- a/server/request_handlers.h
 +++ b/server/request_handlers.h
-@@ -299,6 +299,11 @@ DECL_HANDLER(suspend_process);
- DECL_HANDLER(resume_process);
+@@ -300,6 +300,11 @@ DECL_HANDLER(resume_process);
+ DECL_HANDLER(get_next_process);
  DECL_HANDLER(get_next_thread);
  DECL_HANDLER(set_keyboard_repeat);
 +DECL_HANDLER(create_msync);
@@ -4490,8 +4490,8 @@ index fd39842df56..4d3b9344578 100644
  
  typedef void (*req_handler)( const void *req, void *reply );
  static const req_handler req_handlers[REQ_NB_REQUESTS] =
-@@ -595,6 +600,11 @@ static const req_handler req_handlers[REQ_NB_REQUESTS] =
-     (req_handler)req_resume_process,
+@@ -597,6 +602,11 @@ static const req_handler req_handlers[REQ_NB_REQUESTS] =
+     (req_handler)req_get_next_process,
      (req_handler)req_get_next_thread,
      (req_handler)req_set_keyboard_repeat,
 +    (req_handler)req_create_msync,
@@ -4502,7 +4502,7 @@ index fd39842df56..4d3b9344578 100644
  };
  
  C_ASSERT( sizeof(abstime_t) == 8 );
-@@ -2270,3 +2280,31 @@ C_ASSERT( offsetof(struct set_keyboard_repeat_request, period) == 20 );
+@@ -2281,3 +2291,31 @@ C_ASSERT( offsetof(struct set_keyboard_repeat_request, period) == 20 );
  C_ASSERT( sizeof(struct set_keyboard_repeat_request) == 24 );
  C_ASSERT( offsetof(struct set_keyboard_repeat_reply, enable) == 8 );
  C_ASSERT( sizeof(struct set_keyboard_repeat_reply) == 16 );
@@ -4571,10 +4571,10 @@ index 19b76d44c16..57415604d07 100644
      no_signal,                /* signal */
      no_get_fd,                /* get_fd */
 diff --git a/server/sock.c b/server/sock.c
-index 32d622aaebc..0ecd4d5869a 100644
+index e064f867ff4..6ca8814bb9d 100644
 --- a/server/sock.c
 +++ b/server/sock.c
-@@ -471,6 +471,7 @@ static const struct object_ops sock_ops =
+@@ -486,6 +486,7 @@ static const struct object_ops sock_ops =
      add_queue,                    /* add_queue */
      remove_queue,                 /* remove_queue */
      default_fd_signaled,          /* signaled */
@@ -4582,7 +4582,7 @@ index 32d622aaebc..0ecd4d5869a 100644
      no_satisfied,                 /* satisfied */
      no_signal,                    /* signal */
      sock_get_fd,                  /* get_fd */
-@@ -3599,6 +3600,7 @@ static const struct object_ops ifchange_ops =
+@@ -3695,6 +3696,7 @@ static const struct object_ops ifchange_ops =
      no_add_queue,            /* add_queue */
      NULL,                    /* remove_queue */
      NULL,                    /* signaled */
@@ -4590,7 +4590,7 @@ index 32d622aaebc..0ecd4d5869a 100644
      no_satisfied,            /* satisfied */
      no_signal,               /* signal */
      ifchange_get_fd,         /* get_fd */
-@@ -3820,6 +3822,7 @@ static const struct object_ops socket_device_ops =
+@@ -3916,6 +3918,7 @@ static const struct object_ops socket_device_ops =
      no_add_queue,               /* add_queue */
      NULL,                       /* remove_queue */
      NULL,                       /* signaled */
@@ -4611,10 +4611,10 @@ index 74b60162c01..b6d2d0db55d 100644
      no_signal,                    /* signal */
      no_get_fd,                    /* get_fd */
 diff --git a/server/thread.c b/server/thread.c
-index 88b953709ef..c326ee2b4de 100644
+index 27a40ce38ad..6c29cc8cfa3 100644
 --- a/server/thread.c
 +++ b/server/thread.c
-@@ -53,6 +53,7 @@
+@@ -60,6 +60,7 @@
  #include "request.h"
  #include "user.h"
  #include "security.h"
@@ -4622,7 +4622,7 @@ index 88b953709ef..c326ee2b4de 100644
  
  
  /* thread queues */
-@@ -99,6 +100,7 @@ static const struct object_ops thread_apc_ops =
+@@ -106,6 +107,7 @@ static const struct object_ops thread_apc_ops =
      add_queue,                  /* add_queue */
      remove_queue,               /* remove_queue */
      thread_apc_signaled,        /* signaled */
@@ -4630,7 +4630,7 @@ index 88b953709ef..c326ee2b4de 100644
      no_satisfied,               /* satisfied */
      no_signal,                  /* signal */
      no_get_fd,                  /* get_fd */
-@@ -141,6 +143,7 @@ static const struct object_ops context_ops =
+@@ -148,6 +150,7 @@ static const struct object_ops context_ops =
      add_queue,                  /* add_queue */
      remove_queue,               /* remove_queue */
      context_signaled,           /* signaled */
@@ -4638,7 +4638,7 @@ index 88b953709ef..c326ee2b4de 100644
      no_satisfied,               /* satisfied */
      no_signal,                  /* signal */
      no_get_fd,                  /* get_fd */
-@@ -177,6 +180,7 @@ struct type_descr thread_type =
+@@ -184,6 +187,7 @@ struct type_descr thread_type =
  
  static void dump_thread( struct object *obj, int verbose );
  static int thread_signaled( struct object *obj, struct wait_queue_entry *entry );
@@ -4646,7 +4646,7 @@ index 88b953709ef..c326ee2b4de 100644
  static unsigned int thread_map_access( struct object *obj, unsigned int access );
  static void thread_poll_event( struct fd *fd, int event );
  static struct list *thread_get_kernel_obj_list( struct object *obj );
-@@ -190,6 +194,7 @@ static const struct object_ops thread_ops =
+@@ -197,6 +201,7 @@ static const struct object_ops thread_ops =
      add_queue,                  /* add_queue */
      remove_queue,               /* remove_queue */
      thread_signaled,            /* signaled */
@@ -4654,7 +4654,7 @@ index 88b953709ef..c326ee2b4de 100644
      no_satisfied,               /* satisfied */
      no_signal,                  /* signal */
      no_get_fd,                  /* get_fd */
-@@ -274,6 +279,8 @@ static inline void init_thread_structure( struct thread *thread )
+@@ -392,6 +397,8 @@ static inline void init_thread_structure( struct thread *thread )
      thread->context         = NULL;
      thread->teb             = 0;
      thread->entry_point     = 0;
@@ -4663,7 +4663,7 @@ index 88b953709ef..c326ee2b4de 100644
      thread->system_regs     = 0;
      thread->queue           = NULL;
      thread->wait            = NULL;
-@@ -421,6 +428,12 @@ struct thread *create_thread( int fd, struct process *process, const struct secu
+@@ -540,6 +547,12 @@ struct thread *create_thread( int fd, struct process *process, const struct secu
          }
      }
  
@@ -4676,7 +4676,7 @@ index 88b953709ef..c326ee2b4de 100644
      set_fd_events( thread->request_fd, POLLIN );  /* start listening to events */
      add_process_thread( thread->process, thread );
      return thread;
-@@ -500,6 +513,12 @@ static void destroy_thread( struct object *obj )
+@@ -619,6 +632,12 @@ static void destroy_thread( struct object *obj )
      release_object( thread->process );
      if (thread->id) free_ptid( thread->id );
      if (thread->token) release_object( thread->token );
@@ -4689,7 +4689,7 @@ index 88b953709ef..c326ee2b4de 100644
  }
  
  /* dump a thread on stdout for debugging purposes */
-@@ -518,6 +537,13 @@ static int thread_signaled( struct object *obj, struct wait_queue_entry *entry )
+@@ -637,6 +656,13 @@ static int thread_signaled( struct object *obj, struct wait_queue_entry *entry )
      return (mythread->state == TERMINATED);
  }
  
@@ -4703,7 +4703,7 @@ index 88b953709ef..c326ee2b4de 100644
  static unsigned int thread_map_access( struct object *obj, unsigned int access )
  {
      access = default_map_access( obj, access );
-@@ -570,6 +596,7 @@ static struct thread_apc *create_apc( struct object *owner, const union apc_call
+@@ -689,6 +715,7 @@ static struct thread_apc *create_apc( struct object *owner, const union apc_call
          apc->result.type = APC_NONE;
          if (owner) grab_object( owner );
      }
@@ -4711,7 +4711,7 @@ index 88b953709ef..c326ee2b4de 100644
      return apc;
  }
  
-@@ -1139,6 +1166,9 @@ void wake_up( struct object *obj, int max )
+@@ -1282,6 +1309,9 @@ void wake_up( struct object *obj, int max )
      struct list *ptr;
      int ret;
  
@@ -4721,7 +4721,7 @@ index 88b953709ef..c326ee2b4de 100644
      LIST_FOR_EACH( ptr, &obj->wait_queue )
      {
          struct wait_queue_entry *entry = LIST_ENTRY( ptr, struct wait_queue_entry, entry );
-@@ -1223,8 +1253,12 @@ static int queue_apc( struct process *process, struct thread *thread, struct thr
+@@ -1366,8 +1396,12 @@ static int queue_apc( struct process *process, struct thread *thread, struct thr
      grab_object( apc );
      list_add_tail( queue, &apc->entry );
      if (!list_prev( queue, &apc->entry ))  /* first one */
@@ -4734,7 +4734,7 @@ index 88b953709ef..c326ee2b4de 100644
      return 1;
  }
  
-@@ -1270,6 +1304,10 @@ static struct thread_apc *thread_dequeue_apc( struct thread *thread, int system
+@@ -1413,6 +1447,10 @@ static struct thread_apc *thread_dequeue_apc( struct thread *thread, int system
          apc = LIST_ENTRY( ptr, struct thread_apc, entry );
          list_remove( ptr );
      }
@@ -4745,7 +4745,7 @@ index 88b953709ef..c326ee2b4de 100644
      return apc;
  }
  
-@@ -1365,6 +1403,8 @@ void kill_thread( struct thread *thread, int violent_death )
+@@ -1508,6 +1546,8 @@ void kill_thread( struct thread *thread, int violent_death )
      }
      kill_console_processes( thread, 0 );
      abandon_mutexes( thread );
@@ -4755,7 +4755,7 @@ index 88b953709ef..c326ee2b4de 100644
      if (violent_death) send_thread_signal( thread, SIGQUIT );
      cleanup_thread( thread );
 diff --git a/server/thread.h b/server/thread.h
-index 2b256be322f..b707f354977 100644
+index 7fdae3a629f..78088df9cd0 100644
 --- a/server/thread.h
 +++ b/server/thread.h
 @@ -56,6 +56,8 @@ struct thread
@@ -4856,7 +4856,7 @@ index 7e20c670a16..43683e90423 100644
      no_signal,                 /* signal */
      no_get_fd,                 /* get_fd */
 diff --git a/server/window.c b/server/window.c
-index 9d6ce4ba169..755553cd718 100644
+index f7f9d5e517f..e975e9a4830 100644
 --- a/server/window.c
 +++ b/server/window.c
 @@ -107,6 +107,7 @@ static const struct object_ops window_ops =
@@ -4888,5 +4888,5 @@ index b3746090ccf..bd6bf34fef4 100644
      no_signal,                    /* signal */
      no_get_fd,                    /* get_fd */
 -- 
-2.48.1
+2.49.0
 

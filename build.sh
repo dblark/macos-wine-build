@@ -10,8 +10,8 @@ export BUILDROOT=$ROOT/build
 export INSTALLROOT=$ROOT/install
 export SOURCESROOT=$ROOT/sources
 
-export WINE_VERSION="wine-10.1"
-export WINE_MONO_VERSION="wine-mono-9.4.0"
+export WINE_VERSION="wine-10.5"
+export WINE_MONO_VERSION="wine-mono-10.0.0"
 export WINE_GECKO_VERSION="wine-gecko-2.47.4"
 
 export WINESKIN_VERSION="WS12"
@@ -66,13 +66,11 @@ tar xf $ROOT/$WINE_VERSION.tar.xz
 popd
 
 pushd $SOURCESROOT/$WINE_VERSION
-git apply $ROOT/patches/0001-winemac.drv-no-flicker.patch
-git apply $ROOT/patches/0002-macos-hacks.patch
-git apply $ROOT/patches/0003-winemac.drv-export-essential-apis.patch
-git apply $ROOT/patches/0004-winemac.drv-tiny-cursor-clip.patch
-git apply $ROOT/patches/0005-add-msync.patch
-git apply $ROOT/patches/0006-wined3d-moltenvk-hacks.patch
-git apply $ROOT/patches/0007-opengl-macos-hacks.patch
+patch -p1 --no-backup < $ROOT/patches/0001-winemac.drv-no-flicker.patch
+patch -p1 --no-backup < $ROOT/patches/0002-macos-hacks.patch
+patch -p1 --no-backup < $ROOT/patches/0003-wined3d-moltenvk-hacks.patch
+patch -p1 --no-backup < $ROOT/patches/0004-opengl-macos-hacks.patch
+patch -p1 --no-backup < $ROOT/patches/0005-add-msync.patch
 popd
 
 export WINE_CONFIGURE=$SOURCESROOT/$WINE_VERSION/configure

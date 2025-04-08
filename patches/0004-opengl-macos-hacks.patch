@@ -1,14 +1,14 @@
-From c53e7f82d08a80893cf970e23e6c2b0d07dbddee Mon Sep 17 00:00:00 2001
-From: dblark <dblark@qq.com>
-Date: Wed, 12 Feb 2025 12:17:35 +0800
-Subject: [PATCH 7/7] opengl macos hacks
+From f769897a5db9fdfcc2125337990f53d9fe28bfcb Mon Sep 17 00:00:00 2001
+From: dblark <dblark@stu.pku.edu.cn>
+Date: Tue, 8 Apr 2025 03:05:34 +0800
+Subject: [PATCH 4/5] opengl macos hacks
 
 ---
  dlls/opengl32/Makefile.in   |   2 +-
  dlls/opengl32/make_opengl   |   2 +
- dlls/opengl32/unix_thunks.c |  42 +---
- dlls/opengl32/unix_wgl.c    | 370 +++++++++++++++++++++++++++++++++++-
- 4 files changed, 375 insertions(+), 41 deletions(-)
+ dlls/opengl32/unix_thunks.c |  42 +----
+ dlls/opengl32/unix_wgl.c    | 366 +++++++++++++++++++++++++++++++++++-
+ 4 files changed, 371 insertions(+), 41 deletions(-)
 
 diff --git a/dlls/opengl32/Makefile.in b/dlls/opengl32/Makefile.in
 index 847491eb78f..a021ca248af 100644
@@ -24,10 +24,10 @@ index 847491eb78f..a021ca248af 100644
  EXTRADLLFLAGS = -Wl,--image-base,0x7a800000
  
 diff --git a/dlls/opengl32/make_opengl b/dlls/opengl32/make_opengl
-index 1e55fdf45aa..a92e1286112 100755
+index 97bd5dbfc3a..781d09e35c5 100755
 --- a/dlls/opengl32/make_opengl
 +++ b/dlls/opengl32/make_opengl
-@@ -197,6 +197,7 @@ my %manual_wow64_thunks =
+@@ -196,6 +196,7 @@ my %manual_wow64_thunks =
       "glFenceSync" => 1,
       "glGetBufferPointerv" => 1,
       "glGetBufferPointervARB" => 1,
@@ -35,7 +35,7 @@ index 1e55fdf45aa..a92e1286112 100755
       "glGetNamedBufferPointerv" => 1,
       "glGetNamedBufferPointervEXT" => 1,
       "glGetString" => 1,
-@@ -229,6 +230,7 @@ my %manual_wow64_thunks =
+@@ -228,6 +229,7 @@ my %manual_wow64_thunks =
       "wglMakeCurrent" => 1,
       "wglQueryCurrentRendererStringWINE" => 1,
       "wglQueryRendererStringWINE" => 1,
@@ -44,7 +44,7 @@ index 1e55fdf45aa..a92e1286112 100755
  my %pointer_array_count =
      (
 diff --git a/dlls/opengl32/unix_thunks.c b/dlls/opengl32/unix_thunks.c
-index 5afe6c34fb3..f6c7619ae82 100644
+index c6b722478f3..42503271bd6 100644
 --- a/dlls/opengl32/unix_thunks.c
 +++ b/dlls/opengl32/unix_thunks.c
 @@ -892,7 +892,7 @@ static NTSTATUS gl_glGetDoublev( void *args )
@@ -118,7 +118,7 @@ index 5afe6c34fb3..f6c7619ae82 100644
  extern NTSTATUS wow64_ext_glClientWaitSync( void *args );
  extern NTSTATUS wow64_ext_glDeleteSync( void *args );
 diff --git a/dlls/opengl32/unix_wgl.c b/dlls/opengl32/unix_wgl.c
-index 6e6fcdf7607..1d1910ae197 100644
+index ea08eefe7b5..79f24959b66 100644
 --- a/dlls/opengl32/unix_wgl.c
 +++ b/dlls/opengl32/unix_wgl.c
 @@ -29,6 +29,12 @@
@@ -152,7 +152,7 @@ index 6e6fcdf7607..1d1910ae197 100644
 @@ -74,6 +88,12 @@ struct opengl_context
      GLuint *disabled_exts;       /* indices of disabled extensions */
      struct wgl_context *drv_ctx; /* driver context */
-     GLubyte *version_string;
+     GLubyte *wow64_version;      /* wow64 GL version override */
 +
 +#ifdef __APPLE__
 +    LONG last_error;
@@ -162,21 +162,21 @@ index 6e6fcdf7607..1d1910ae197 100644
  };
  
  struct wgl_handle
-@@ -1261,6 +1281,53 @@ static inline void update_teb32_context( TEB *teb )
+@@ -1281,6 +1301,53 @@ static inline void update_teb32_context( TEB *teb )
      ((TEB32 *)teb32)->glReserved1[1] = (UINT_PTR)teb->glReserved1[1];
  }
  
 +#ifdef __APPLE__
 +static void create_context_init_resources(TEB *teb, HGLRC *hglrc, HGLRC share)
 +{
-+    struct wgl_handle *ptr = get_handle_ptr(*hglrc, HANDLE_CONTEXT);
++    struct wgl_handle *ptr = get_handle_ptr(*hglrc);
 +    struct opengl_context *context = ptr->u.context, *share_context;
 +
 +    TRACE( "teb %p, hglrc %p, share %p.\n", teb, hglrc, share );
 +
 +    if (share)
 +    {
-+        ptr = get_handle_ptr(share, HANDLE_CONTEXT);
++        ptr = get_handle_ptr(share);
 +        share_context = ptr->u.context;
 +    }
 +    InterlockedExchange(&context->last_error, GL_NO_ERROR);
@@ -216,7 +216,7 @@ index 6e6fcdf7607..1d1910ae197 100644
  NTSTATUS wow64_wgl_wglCreateContext( void *args )
  {
      struct
-@@ -1275,8 +1342,13 @@ NTSTATUS wow64_wgl_wglCreateContext( void *args )
+@@ -1295,8 +1362,13 @@ NTSTATUS wow64_wgl_wglCreateContext( void *args )
          .hDc = ULongToPtr(params32->hDc),
      };
      NTSTATUS status;
@@ -230,7 +230,7 @@ index 6e6fcdf7607..1d1910ae197 100644
      return STATUS_SUCCESS;
  }
  
-@@ -1300,9 +1372,137 @@ NTSTATUS wow64_ext_wglCreateContextAttribsARB( void *args )
+@@ -1320,9 +1392,137 @@ NTSTATUS wow64_ext_wglCreateContextAttribsARB( void *args )
      NTSTATUS status;
      if ((status = ext_wglCreateContextAttribsARB( &params ))) return status;
      params32->ret = (UINT_PTR)params.ret;
@@ -353,7 +353,7 @@ index 6e6fcdf7607..1d1910ae197 100644
 +     * update the destination context's resource map. */
 +    if (params.ret)
 +    {
-+        struct wgl_handle *ptr = get_handle_ptr(params.hrcSrvSource, HANDLE_CONTEXT);
++        struct wgl_handle *ptr = get_handle_ptr(params.hrcSrvSource);
 +        struct opengl_context *dst = ptr->u.context;
 +
 +        if (dst->resources->refcount != 1)
@@ -368,20 +368,20 @@ index 6e6fcdf7607..1d1910ae197 100644
  NTSTATUS wow64_ext_wglCreatePbufferARB( void *args )
  {
      struct
-@@ -1344,6 +1544,12 @@ NTSTATUS wow64_wgl_wglDeleteContext( void *args )
+@@ -1364,6 +1564,12 @@ NTSTATUS wow64_wgl_wglDeleteContext( void *args )
          .oldContext = ULongToPtr(params32->oldContext),
      };
      NTSTATUS status;
 +
 +#ifdef __APPLE__
-+    struct wgl_handle *ptr = get_handle_ptr(params.oldContext, HANDLE_CONTEXT);
++    struct wgl_handle *ptr = get_handle_ptr(params.oldContext);
 +
 +    if (ptr) free_mapped_buffers(ptr->u.context);
 +#endif
      if (!(status = wgl_wglDeleteContext( &params ))) update_teb32_context( params.teb );
      params32->ret = params.ret;
      return status;
-@@ -1818,6 +2024,30 @@ NTSTATUS wow64_ext_glWaitSync( void *args )
+@@ -1838,6 +2044,29 @@ NTSTATUS wow64_ext_glWaitSync( void *args )
      return status;
  }
  
@@ -399,20 +399,19 @@ index 6e6fcdf7607..1d1910ae197 100644
 +    const struct opengl_funcs *funcs = params.teb->glTable;
 +
 +#ifdef __APPLE__
-+    struct wgl_handle *ptr = get_current_context_ptr( params.teb );
-+    struct opengl_context *current = ptr->u.context;
++    struct opengl_context *current = get_current_context( params.teb );
 +
 +    if ((params32->ret = InterlockedExchange(&current->last_error, GL_NO_ERROR)) != GL_NO_ERROR)
 +        return STATUS_SUCCESS;
 +#endif
-+    params32->ret = funcs->gl.p_glGetError();
++    params32->ret = funcs->p_glGetError();
 +    return STATUS_SUCCESS;
 +}
 +
  static GLint get_buffer_param( TEB *teb, GLenum target, GLenum param )
  {
      const struct opengl_funcs *funcs = teb->glTable;
-@@ -1828,6 +2058,7 @@ static GLint get_buffer_param( TEB *teb, GLenum target, GLenum param )
+@@ -1848,6 +2077,7 @@ static GLint get_buffer_param( TEB *teb, GLenum target, GLenum param )
      return size;
  }
  
@@ -420,7 +419,7 @@ index 6e6fcdf7607..1d1910ae197 100644
  static void *get_buffer_pointer( TEB *teb, GLenum target )
  {
      const struct opengl_funcs *funcs = teb->glTable;
-@@ -1837,6 +2068,7 @@ static void *get_buffer_pointer( TEB *teb, GLenum target )
+@@ -1857,6 +2087,7 @@ static void *get_buffer_pointer( TEB *teb, GLenum target )
      if (func) func( target, GL_BUFFER_MAP_POINTER, &ptr );
      return ptr;
  }
@@ -428,7 +427,7 @@ index 6e6fcdf7607..1d1910ae197 100644
  
  static GLint get_named_buffer_param( TEB *teb, GLint buffer, GLenum param )
  {
-@@ -1963,6 +2195,26 @@ static NTSTATUS wow64_gl_get_buffer_pointer_v( void *args, NTSTATUS (*get_buffer
+@@ -1983,6 +2214,25 @@ static NTSTATUS wow64_gl_get_buffer_pointer_v( void *args, NTSTATUS (*get_buffer
      PTR32 *wow_ptr = UlongToPtr(params32->params);
      NTSTATUS status;
  
@@ -436,12 +435,11 @@ index 6e6fcdf7607..1d1910ae197 100644
 +    if (params.pname == GL_BUFFER_MAP_POINTER)
 +    {
 +        const struct opengl_funcs *funcs = params.teb->glTable;
-+        struct wgl_handle *ptr = get_current_context_ptr( params.teb );
-+        struct opengl_context *current = ptr->u.context;
++        struct opengl_context *current = get_current_context( params.teb );
 +        GLuint buffer;
 +        void *addr;
 +
-+        funcs->gl.p_glGetIntegerv(binding_for_target(params.target), (GLint *)&buffer);
++        funcs->p_glGetIntegerv(binding_for_target(params.target), (GLint *)&buffer);
 +        /* Let the native GL handle the default buffer (that is, no buffer at all). */
 +        if (buffer != 0 &&
 +            (addr = (void *)CFDictionaryGetValue(current->resources->mapped_buffers, (const void *)(ULONG_PTR)buffer)))
@@ -455,7 +453,7 @@ index 6e6fcdf7607..1d1910ae197 100644
      if ((status = get_buffer_pointer_v64( &params ))) return status;
      if (params.pname != GL_BUFFER_MAP_POINTER) return STATUS_NOT_IMPLEMENTED;
      if (ULongToPtr(*wow_ptr = PtrToUlong(ptr)) == ptr) return STATUS_SUCCESS;  /* we're lucky */
-@@ -2000,6 +2252,9 @@ static NTSTATUS wow64_gl_get_named_buffer_pointer_v( void *args, NTSTATUS (*gl_g
+@@ -2020,6 +2270,9 @@ static NTSTATUS wow64_gl_get_named_buffer_pointer_v( void *args, NTSTATUS (*gl_g
      PTR32 *wow_ptr = UlongToPtr(params32->params);
      NTSTATUS status;
  
@@ -465,7 +463,7 @@ index 6e6fcdf7607..1d1910ae197 100644
      if ((status = gl_get_named_buffer_pointer_v64( &params ))) return status;
      if (params.pname != GL_BUFFER_MAP_POINTER) return STATUS_NOT_IMPLEMENTED;
      if (ULongToPtr(*wow_ptr = PtrToUlong(ptr)) == ptr) return STATUS_SUCCESS;  /* we're lucky */
-@@ -2017,6 +2272,77 @@ NTSTATUS wow64_ext_glGetNamedBufferPointervEXT( void *args )
+@@ -2037,6 +2290,76 @@ NTSTATUS wow64_ext_glGetNamedBufferPointervEXT( void *args )
      return wow64_gl_get_named_buffer_pointer_v( args, ext_glGetNamedBufferPointervEXT );
  }
  
@@ -485,8 +483,7 @@ index 6e6fcdf7607..1d1910ae197 100644
 +
 +static void *remap_memory(TEB *teb, void *hostaddr, GLint size, GLenum target, BOOL readonly)
 +{
-+    struct wgl_handle *ptr = get_current_context_ptr( teb );
-+    struct opengl_context *current = ptr->u.context;
++    struct opengl_context *current = get_current_context( teb );
 +    const struct opengl_funcs *funcs = teb->glTable;
 +    vm_prot_t cur_protection, max_protection;
 +    mach_vm_address_t lowaddr, base;
@@ -532,7 +529,7 @@ index 6e6fcdf7607..1d1910ae197 100644
 +        return NULL;
 +    }
 +
-+    funcs->gl.p_glGetIntegerv(binding_for_target(target), (GLint *)&buffer);
++    funcs->p_glGetIntegerv(binding_for_target(target), (GLint *)&buffer);
 +    set_mapped_buffer(current->resources->mapped_buffers, buffer, (void *)lowaddr);
 +    TRACE("    remapped buffer %u (aligned size %zu) to address 0x%08llx\n", buffer, mapping_size, lowaddr);
 +    return (void *)(lowaddr + ((vm_map_offset_t)hostaddr - base));
@@ -543,7 +540,7 @@ index 6e6fcdf7607..1d1910ae197 100644
  static NTSTATUS wow64_gl_map_buffer( void *args, NTSTATUS (*gl_map_buffer64)(void *) )
  {
      struct
-@@ -2034,6 +2360,14 @@ static NTSTATUS wow64_gl_map_buffer( void *args, NTSTATUS (*gl_map_buffer64)(voi
+@@ -2054,6 +2377,14 @@ static NTSTATUS wow64_gl_map_buffer( void *args, NTSTATUS (*gl_map_buffer64)(voi
      };
      NTSTATUS status;
  
@@ -558,7 +555,7 @@ index 6e6fcdf7607..1d1910ae197 100644
      /* already mapped, we're being called again with a wow64 pointer */
      if (params32->ret) params.ret = get_buffer_pointer( params.teb, params.target );
      else if ((status = gl_map_buffer64( &params ))) return status;
-@@ -2044,6 +2378,7 @@ static NTSTATUS wow64_gl_map_buffer( void *args, NTSTATUS (*gl_map_buffer64)(voi
+@@ -2064,6 +2395,7 @@ static NTSTATUS wow64_gl_map_buffer( void *args, NTSTATUS (*gl_map_buffer64)(voi
  
      unmap_buffer( params.teb, params.target );
      return status;
@@ -566,7 +563,7 @@ index 6e6fcdf7607..1d1910ae197 100644
  }
  
  NTSTATUS wow64_ext_glMapBuffer( void *args )
-@@ -2077,6 +2412,11 @@ NTSTATUS wow64_ext_glMapBufferRange( void *args )
+@@ -2097,6 +2429,11 @@ NTSTATUS wow64_ext_glMapBufferRange( void *args )
      };
      NTSTATUS status;
  
@@ -578,7 +575,7 @@ index 6e6fcdf7607..1d1910ae197 100644
      /* already mapped, we're being called again with a wow64 pointer */
      if (params32->ret) params.ret = (char *)get_buffer_pointer( params.teb, params.target );
      else if ((status = ext_glMapBufferRange( &params ))) return status;
-@@ -2086,6 +2426,7 @@ NTSTATUS wow64_ext_glMapBufferRange( void *args )
+@@ -2106,6 +2443,7 @@ NTSTATUS wow64_ext_glMapBufferRange( void *args )
  
      unmap_buffer( params.teb, params.target );
      return status;
@@ -586,7 +583,7 @@ index 6e6fcdf7607..1d1910ae197 100644
  }
  
  static NTSTATUS wow64_gl_map_named_buffer( void *args, NTSTATUS (*gl_map_named_buffer64)(void *) )
-@@ -2105,6 +2446,9 @@ static NTSTATUS wow64_gl_map_named_buffer( void *args, NTSTATUS (*gl_map_named_b
+@@ -2125,6 +2463,9 @@ static NTSTATUS wow64_gl_map_named_buffer( void *args, NTSTATUS (*gl_map_named_b
      };
      NTSTATUS status;
  
@@ -596,7 +593,7 @@ index 6e6fcdf7607..1d1910ae197 100644
      /* already mapped, we're being called again with a wow64 pointer */
      if (params32->ret) params.ret = get_named_buffer_pointer( params.teb, params.buffer );
      else if ((status = gl_map_named_buffer64( &params ))) return status;
-@@ -2148,6 +2492,9 @@ static NTSTATUS wow64_gl_map_named_buffer_range( void *args, NTSTATUS (*gl_map_n
+@@ -2168,6 +2509,9 @@ static NTSTATUS wow64_gl_map_named_buffer_range( void *args, NTSTATUS (*gl_map_n
      };
      NTSTATUS status;
  
@@ -606,7 +603,7 @@ index 6e6fcdf7607..1d1910ae197 100644
      /* already mapped, we're being called again with a wow64 pointer */
      if (params32->ret) params.ret = get_named_buffer_pointer( params.teb, params.buffer );
      else if ((status = gl_map_named_buffer_range64( &params ))) return status;
-@@ -2171,7 +2518,6 @@ NTSTATUS wow64_ext_glMapNamedBufferRangeEXT( void *args )
+@@ -2191,7 +2535,6 @@ NTSTATUS wow64_ext_glMapNamedBufferRangeEXT( void *args )
  
  static NTSTATUS wow64_gl_unmap_buffer( void *args, NTSTATUS (*gl_unmap_buffer64)(void *) )
  {
@@ -614,19 +611,18 @@ index 6e6fcdf7607..1d1910ae197 100644
      struct
      {
          PTR32 teb;
-@@ -2186,6 +2532,24 @@ static NTSTATUS wow64_gl_unmap_buffer( void *args, NTSTATUS (*gl_unmap_buffer64)
+@@ -2206,6 +2549,23 @@ static NTSTATUS wow64_gl_unmap_buffer( void *args, NTSTATUS (*gl_unmap_buffer64)
      };
      NTSTATUS status;
  
 +#ifdef __APPLE__
-+    struct wgl_handle *handle_ptr = get_current_context_ptr( params.teb );
-+    struct opengl_context *current = handle_ptr->u.context;
++    struct opengl_context *current = get_current_context( params.teb );
 +    const struct opengl_funcs *funcs = params.teb->glTable;
 +    GLuint buffer;
 +
 +    TRACE("target 0x%04x\n", params.target);
 +
-+    funcs->gl.p_glGetIntegerv(binding_for_target(params.target), (GLint *)&buffer);
++    funcs->p_glGetIntegerv(binding_for_target(params.target), (GLint *)&buffer);
 +    free_mapped_buffer(current, buffer);
 +
 +    status = gl_unmap_buffer64( &params );
@@ -639,7 +635,7 @@ index 6e6fcdf7607..1d1910ae197 100644
      if (!(ptr = get_buffer_pointer( params.teb, params.target ))) return STATUS_SUCCESS;
  
      status = wow64_unmap_buffer( ptr, get_buffer_param( params.teb, params.target, GL_BUFFER_MAP_LENGTH ),
-@@ -2194,6 +2558,7 @@ static NTSTATUS wow64_gl_unmap_buffer( void *args, NTSTATUS (*gl_unmap_buffer64)
+@@ -2214,6 +2574,7 @@ static NTSTATUS wow64_gl_unmap_buffer( void *args, NTSTATUS (*gl_unmap_buffer64)
      params32->ret = params.ret;
  
      return status;
@@ -647,7 +643,7 @@ index 6e6fcdf7607..1d1910ae197 100644
  }
  
  NTSTATUS wow64_ext_glUnmapBuffer( void *args )
-@@ -2223,6 +2588,9 @@ static NTSTATUS wow64_gl_unmap_named_buffer( void *args, NTSTATUS (*gl_unmap_nam
+@@ -2243,6 +2604,9 @@ static NTSTATUS wow64_gl_unmap_named_buffer( void *args, NTSTATUS (*gl_unmap_nam
      };
      NTSTATUS status;
  
@@ -658,5 +654,5 @@ index 6e6fcdf7607..1d1910ae197 100644
  
      status = wow64_unmap_buffer( ptr, get_named_buffer_param( params.teb, params.buffer, GL_BUFFER_MAP_LENGTH ),
 -- 
-2.48.1
+2.49.0
 

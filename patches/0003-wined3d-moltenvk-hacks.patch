@@ -1,20 +1,21 @@
-From 961d4ff44c206096f9b04598a44889cd21f1ff1b Mon Sep 17 00:00:00 2001
-From: dblark <dblark@qq.com>
-Date: Sun, 9 Feb 2025 21:26:45 +0800
-Subject: [PATCH 6/7] wined3d moltenvk hacks
+From 9f006946f4c54527912094c63ffb096b69f24ef5 Mon Sep 17 00:00:00 2001
+From: dblark <dblark@stu.pku.edu.cn>
+Date: Tue, 8 Apr 2025 03:05:26 +0800
+Subject: [PATCH 3/5] wined3d moltenvk hacks
 
 ---
  dlls/wined3d/adapter_vk.c | 26 +++++++++++++++++++++++++-
+ dlls/wined3d/context_vk.c | 35 +++++++++++++++++++++++++++++++----
  dlls/wined3d/directx.c    | 14 +++++++++++++-
  dlls/wined3d/swapchain.c  |  8 +++++++-
- dlls/wined3d/wined3d_vk.h |  1 +
- 4 files changed, 46 insertions(+), 3 deletions(-)
+ dlls/wined3d/wined3d_vk.h |  4 +++-
+ 5 files changed, 79 insertions(+), 8 deletions(-)
 
 diff --git a/dlls/wined3d/adapter_vk.c b/dlls/wined3d/adapter_vk.c
-index 60546d86597..ee5352e1022 100644
+index ca11ec480d2..5ec21fb852e 100644
 --- a/dlls/wined3d/adapter_vk.c
 +++ b/dlls/wined3d/adapter_vk.c
-@@ -2248,6 +2248,7 @@ static void wined3d_adapter_vk_init_d3d_info(struct wined3d_adapter_vk *adapter_
+@@ -2291,6 +2291,7 @@ static void wined3d_adapter_vk_init_d3d_info(struct wined3d_adapter_vk *adapter_
      struct wined3d_vertex_caps vertex_caps;
      unsigned int sample_counts_mask;
      struct shader_caps shader_caps;
@@ -22,7 +23,7 @@ index 60546d86597..ee5352e1022 100644
  
      get_physical_device_info(adapter_vk, &device_info);
  
-@@ -2321,7 +2322,9 @@ static void wined3d_adapter_vk_init_d3d_info(struct wined3d_adapter_vk *adapter_
+@@ -2365,7 +2366,9 @@ static void wined3d_adapter_vk_init_d3d_info(struct wined3d_adapter_vk *adapter_
  
      d3d_info->multisample_draw_location = WINED3D_LOCATION_TEXTURE_RGB;
  
@@ -30,10 +31,10 @@ index 60546d86597..ee5352e1022 100644
 +    /* HACK: Disable multiple viewports when running with MoltenVK. As of writing, it causes glitches in multiple games. */
 +    moltenvk = adapter_vk->driver_properties.driverID == VK_DRIVER_ID_MOLTENVK;
 +    if (!moltenvk) vk_info->multiple_viewports = device_info.features2.features.multiViewport;
+     vk_info->uav_read_without_format = device_info.features2.features.shaderStorageImageReadWithoutFormat;
      vk_info->dynamic_state2 = device_info.dynamic_state2_features.extendedDynamicState2;
      vk_info->dynamic_patch_vertex_count = device_info.dynamic_state2_features.extendedDynamicState2PatchControlPoints;
- 
-@@ -2364,6 +2367,7 @@ static bool wined3d_adapter_vk_init_device_extensions(struct wined3d_adapter_vk
+@@ -2409,6 +2412,7 @@ static bool wined3d_adapter_vk_init_device_extensions(struct wined3d_adapter_vk
          {VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME,       ~0u},
          {VK_EXT_TRANSFORM_FEEDBACK_EXTENSION_NAME,          ~0u},
          {VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME,    ~0u},
@@ -41,7 +42,7 @@ index 60546d86597..ee5352e1022 100644
          {VK_KHR_MAINTENANCE1_EXTENSION_NAME,                VK_API_VERSION_1_1, true},
          {VK_KHR_MAINTENANCE2_EXTENSION_NAME,                VK_API_VERSION_1_1},
          {VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME,VK_API_VERSION_1_2},
-@@ -2502,12 +2506,32 @@ static BOOL wined3d_adapter_vk_init(struct wined3d_adapter_vk *adapter_vk,
+@@ -2556,12 +2560,32 @@ static BOOL wined3d_adapter_vk_init(struct wined3d_adapter_vk *adapter_vk,
      properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
      properties2.pNext = &id_properties;
  
@@ -74,11 +75,90 @@ index 60546d86597..ee5352e1022 100644
      VK_CALL(vkGetPhysicalDeviceMemoryProperties(adapter_vk->physical_device, &adapter_vk->memory_properties));
  
      if (id_properties.deviceLUIDValid)
+diff --git a/dlls/wined3d/context_vk.c b/dlls/wined3d/context_vk.c
+index 7fea48d83d2..540a88a022e 100644
+--- a/dlls/wined3d/context_vk.c
++++ b/dlls/wined3d/context_vk.c
+@@ -2946,6 +2946,7 @@ static bool wined3d_context_vk_begin_render_pass(struct wined3d_context_vk *cont
+     unsigned int fb_width, fb_height, fb_layer_count;
+     struct wined3d_rendertarget_view_vk *rtv_vk;
+     struct wined3d_rendertarget_view *view;
++    struct wined3d_adapter_vk *adapter_vk;
+     const VkPhysicalDeviceLimits *limits;
+     struct wined3d_query_vk *query_vk;
+     VkCommandBuffer vk_command_buffer;
+@@ -2953,12 +2954,14 @@ static bool wined3d_context_vk_begin_render_pass(struct wined3d_context_vk *cont
+     unsigned int attachment_count, i;
+     struct wined3d_texture *texture;
+     VkFramebufferCreateInfo fb_desc;
++    int offset_x = 0, offset_y = 0;
+     VkResult vr;
+ 
+     if (context_vk->vk_render_pass)
+         return true;
+ 
+-    limits = &wined3d_adapter_vk(device_vk->d.adapter)->device_limits;
++    adapter_vk = wined3d_adapter_vk(device_vk->d.adapter);
++    limits = &adapter_vk->device_limits;
+     fb_width = limits->maxFramebufferWidth;
+     fb_height = limits->maxFramebufferHeight;
+     fb_layer_count = limits->maxFramebufferLayers;
+@@ -3077,6 +3080,28 @@ static bool wined3d_context_vk_begin_render_pass(struct wined3d_context_vk *cont
+     fb_desc.height = fb_height;
+     fb_desc.layers = fb_layer_count;
+ 
++    /* CX Hack 20098: on Apple's tiled GPUs, we should trim the render area, so that it doesn't
++     * try to preallocate huge amounts of memory for rasterization when there's no attachments.
++     * For now, let's always do that if we're running with MoltenVK. We could detect only
++     * the tiled architecture GPUs if needed.
++     * Note that multiple viewports are disabled when using MoltenVK (for bug 22877).
++     */
++    context_vk->hack_render_area_trimmed_to_viewport = 0;
++    if (adapter_vk->driver_properties.driverID == VK_DRIVER_ID_MOLTENVK &&
++            !attachment_count)
++    {
++        WARN("No attachments, trimming render area to the viewport.\n");
++
++        fb_width = ceilf(state->viewports[0].width);
++        fb_height = ceilf(-state->viewports[0].height);
++        fb_desc.layers = 1;
++
++        offset_x = state->viewports[0].x;
++        offset_y = state->viewports[0].y + state->viewports[0].height;
++
++        context_vk->hack_render_area_trimmed_to_viewport = 1;
++    }
++
+     if ((vr = VK_CALL(vkCreateFramebuffer(device_vk->vk_device, &fb_desc, NULL, &context_vk->vk_framebuffer))) < 0)
+     {
+         WARN("Failed to create Vulkan framebuffer, vr %s.\n", wined3d_debug_vkresult(vr));
+@@ -3087,8 +3112,8 @@ static bool wined3d_context_vk_begin_render_pass(struct wined3d_context_vk *cont
+     begin_info.pNext = NULL;
+     begin_info.renderPass = context_vk->vk_render_pass;
+     begin_info.framebuffer = context_vk->vk_framebuffer;
+-    begin_info.renderArea.offset.x = 0;
+-    begin_info.renderArea.offset.y = 0;
++    begin_info.renderArea.offset.x = offset_x;
++    begin_info.renderArea.offset.y = offset_y;
+     begin_info.renderArea.extent.width = fb_width;
+     begin_info.renderArea.extent.height = fb_height;
+     begin_info.pClearValues = clear_values;
+@@ -4023,7 +4048,9 @@ VkCommandBuffer wined3d_context_vk_apply_draw_state(struct wined3d_context_vk *c
+ 
+     wined3d_context_vk_load_buffers(context_vk, state, indirect_vk, indexed);
+ 
+-    if (wined3d_context_is_graphics_state_dirty(&context_vk->c, STATE_FRAMEBUFFER))
++    if (wined3d_context_is_graphics_state_dirty(&context_vk->c, STATE_FRAMEBUFFER) ||
++            (context_vk->hack_render_area_trimmed_to_viewport &&
++            wined3d_context_is_graphics_state_dirty(&context_vk->c, STATE_VIEWPORT)))
+         wined3d_context_vk_end_current_render_pass(context_vk);
+ 
+     if (!wined3d_context_vk_begin_render_pass(context_vk, state, vk_info))
 diff --git a/dlls/wined3d/directx.c b/dlls/wined3d/directx.c
-index dfda5751e98..ebec9de755a 100644
+index c2e91b38bad..306be90543c 100644
 --- a/dlls/wined3d/directx.c
 +++ b/dlls/wined3d/directx.c
-@@ -3458,13 +3458,25 @@ done:
+@@ -3477,13 +3477,25 @@ done:
  
  static struct wined3d_adapter *wined3d_adapter_create(unsigned int ordinal, DWORD wined3d_creation_flags)
  {
@@ -106,7 +186,7 @@ index dfda5751e98..ebec9de755a 100644
  
  static void STDMETHODCALLTYPE wined3d_null_wined3d_object_destroyed(void *parent) {}
 diff --git a/dlls/wined3d/swapchain.c b/dlls/wined3d/swapchain.c
-index 6b2ad8d6954..37a6163fc8d 100644
+index 2811e588ecd..5c1f2200299 100644
 --- a/dlls/wined3d/swapchain.c
 +++ b/dlls/wined3d/swapchain.c
 @@ -917,7 +917,13 @@ static HRESULT wined3d_swapchain_vk_create_vulkan_swapchain(struct wined3d_swapc
@@ -125,10 +205,20 @@ index 6b2ad8d6954..37a6163fc8d 100644
          image_count = surface_caps.minImageCount;
      else if (surface_caps.maxImageCount && image_count > surface_caps.maxImageCount)
 diff --git a/dlls/wined3d/wined3d_vk.h b/dlls/wined3d/wined3d_vk.h
-index a9f535fa1bd..b0a45c2c06b 100644
+index 55f40d5a831..9f799a358a0 100644
 --- a/dlls/wined3d/wined3d_vk.h
 +++ b/dlls/wined3d/wined3d_vk.h
-@@ -732,6 +732,7 @@ struct wined3d_adapter_vk
+@@ -654,7 +654,8 @@ struct wined3d_context_vk
+ 
+     uint32_t update_compute_pipeline : 1;
+     uint32_t update_stream_output : 1;
+-    uint32_t padding : 30;
++    uint32_t hack_render_area_trimmed_to_viewport : 1;
++    uint32_t padding : 29;
+ 
+     struct
+     {
+@@ -806,6 +807,7 @@ struct wined3d_adapter_vk
  
      VkPhysicalDeviceLimits device_limits;
      VkPhysicalDeviceMemoryProperties memory_properties;
@@ -137,5 +227,5 @@ index a9f535fa1bd..b0a45c2c06b 100644
  
  static inline struct wined3d_adapter_vk *wined3d_adapter_vk(struct wined3d_adapter *adapter)
 -- 
-2.48.1
+2.49.0
 

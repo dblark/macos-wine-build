@@ -1,7 +1,7 @@
-From 677a7068ef2c8cda04911912b57d5059d75713f0 Mon Sep 17 00:00:00 2001
-From: dblark <dblark@qq.com>
-Date: Sun, 9 Feb 2025 16:36:16 +0800
-Subject: [PATCH 1/7] winemac.drv no flicker
+From 5bd7d21b64ae3e417d53435e3fd84a521526cfb4 Mon Sep 17 00:00:00 2001
+From: dblark <dblark@stu.pku.edu.cn>
+Date: Mon, 7 Apr 2025 21:50:13 +0800
+Subject: [PATCH 1/5] winemac.drv no flicker
 
 ---
  dlls/winemac.drv/macdrv.h      | 1 +
@@ -10,7 +10,7 @@ Subject: [PATCH 1/7] winemac.drv no flicker
  3 files changed, 6 insertions(+), 1 deletion(-)
 
 diff --git a/dlls/winemac.drv/macdrv.h b/dlls/winemac.drv/macdrv.h
-index 4457a7e186c..9c6a1a0ac8d 100644
+index 96262a7d030..2dfbd57ea50 100644
 --- a/dlls/winemac.drv/macdrv.h
 +++ b/dlls/winemac.drv/macdrv.h
 @@ -43,6 +43,7 @@
@@ -44,10 +44,10 @@ index 24f6ac973df..923a6fc2ef5 100644
         processes in the prefix. */
      if (!get_config_key(hkey, NULL, "RetinaMode", buffer, sizeof(buffer)))
 diff --git a/dlls/winemac.drv/opengl.c b/dlls/winemac.drv/opengl.c
-index ac87cfc1313..68de39f49cd 100644
+index 34315219d3c..51118b4fec3 100644
 --- a/dlls/winemac.drv/opengl.c
 +++ b/dlls/winemac.drv/opengl.c
-@@ -1451,7 +1451,7 @@ static BOOL create_context(struct wgl_context *context, CGLContextObj share, uns
+@@ -1409,7 +1409,7 @@ static BOOL create_context(struct wgl_context *context, CGLContextObj share, uns
          attribs[n++] = pf->samples;
      }
  
@@ -57,5 +57,5 @@ index ac87cfc1313..68de39f49cd 100644
  
      if (core)
 -- 
-2.48.1
+2.49.0
 
