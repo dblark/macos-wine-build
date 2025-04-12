@@ -21,8 +21,7 @@ export BISON_PATH=$(brew --prefix bison)
 export PATH="$BISON_PATH/bin:$(brew --prefix)/bin:/usr/bin:/bin"
 
 export OPTFLAGS="-g -O2"
-export CROSSCFLAGS="-Wno-incompatible-pointer-types"
-export LDFLAGS="-Wl,-rpath,/usr/local/lib -Wl,-rpath,/opt/local/lib -L$BISON_PATH/lib"
+export LDFLAGS="-L$BISON_PATH/lib"
 
 echo "Download sources: wine"
 
@@ -75,8 +74,8 @@ popd
 
 export WINE_CONFIGURE=$SOURCESROOT/$WINE_VERSION/configure
 
-export CC="ccache clang -arch x86_64"
-export CXX="ccache clang++ -arch x86_64"
+export CC="ccache clang"
+export CXX="ccache clang++"
 export i386_CC="ccache i686-w64-mingw32-gcc"
 export x86_64_CC="ccache x86_64-w64-mingw32-gcc"
 
