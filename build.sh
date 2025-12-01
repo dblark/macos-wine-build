@@ -1,6 +1,5 @@
 #!/usr/bin/env arch -x86_64 bash
 set -e
-
 export WINE_MAIN_VERSION="10.x" # 10.0, 9.x, 9.0, 8.x, 8.0
 
 export JOB_COUNT=$(sysctl -n hw.logicalcpu)
@@ -10,8 +9,8 @@ export BUILDROOT=$ROOT/build
 export INSTALLROOT=$ROOT/install
 export SOURCESROOT=$ROOT/sources
 
-export WINE_VERSION="wine-10.5"
-export WINE_MONO_VERSION="wine-mono-10.0.0"
+export WINE_VERSION="wine-10.20"
+export WINE_MONO_VERSION="wine-mono-10.3.0"
 export WINE_GECKO_VERSION="wine-gecko-2.47.4"
 
 export WINESKIN_VERSION="WS12"
@@ -65,11 +64,10 @@ tar xf $ROOT/$WINE_VERSION.tar.xz
 popd
 
 pushd $SOURCESROOT/$WINE_VERSION
-patch -p1 --no-backup < $ROOT/patches/0001-winemac.drv-no-flicker.patch
-patch -p1 --no-backup < $ROOT/patches/0002-macos-hacks.patch
-patch -p1 --no-backup < $ROOT/patches/0003-wined3d-moltenvk-hacks.patch
-patch -p1 --no-backup < $ROOT/patches/0004-opengl-macos-hacks.patch
-patch -p1 --no-backup < $ROOT/patches/0005-add-msync.patch
+patch -p1 --no-backup < $ROOT/patches/0001-macos-hacks.patch
+patch -p1 --no-backup < $ROOT/patches/0002-wined3d-moltenvk-hacks.patch
+patch -p1 --no-backup < $ROOT/patches/0003-Revert-winemac-Get-rid-of-now-unnecessary-child-coco.patch
+patch -p1 --no-backup < $ROOT/patches/0004-export-apis-for-dxmt.patch
 popd
 
 export WINE_CONFIGURE=$SOURCESROOT/$WINE_VERSION/configure

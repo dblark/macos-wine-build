@@ -1,7 +1,7 @@
-From 9f006946f4c54527912094c63ffb096b69f24ef5 Mon Sep 17 00:00:00 2001
+From ff347df075f087ffc2b7b26182b6e111633957c2 Mon Sep 17 00:00:00 2001
 From: dblark <dblark@stu.pku.edu.cn>
-Date: Tue, 8 Apr 2025 03:05:26 +0800
-Subject: [PATCH 3/5] wined3d moltenvk hacks
+Date: Fri, 28 Nov 2025 01:18:19 +0800
+Subject: [PATCH 2/4] wined3d moltenvk hacks
 
 ---
  dlls/wined3d/adapter_vk.c | 26 +++++++++++++++++++++++++-
@@ -155,10 +155,10 @@ index 7fea48d83d2..540a88a022e 100644
  
      if (!wined3d_context_vk_begin_render_pass(context_vk, state, vk_info))
 diff --git a/dlls/wined3d/directx.c b/dlls/wined3d/directx.c
-index c2e91b38bad..306be90543c 100644
+index c3f381a611d..0225d96bd37 100644
 --- a/dlls/wined3d/directx.c
 +++ b/dlls/wined3d/directx.c
-@@ -3477,13 +3477,25 @@ done:
+@@ -3480,13 +3480,25 @@ done:
  
  static struct wined3d_adapter *wined3d_adapter_create(unsigned int ordinal, DWORD wined3d_creation_flags)
  {
@@ -186,7 +186,7 @@ index c2e91b38bad..306be90543c 100644
  
  static void STDMETHODCALLTYPE wined3d_null_wined3d_object_destroyed(void *parent) {}
 diff --git a/dlls/wined3d/swapchain.c b/dlls/wined3d/swapchain.c
-index 2811e588ecd..5c1f2200299 100644
+index a1000ec2393..eeaf1e2e2cf 100644
 --- a/dlls/wined3d/swapchain.c
 +++ b/dlls/wined3d/swapchain.c
 @@ -917,7 +917,13 @@ static HRESULT wined3d_swapchain_vk_create_vulkan_swapchain(struct wined3d_swapc
@@ -227,5 +227,5 @@ index 55f40d5a831..9f799a358a0 100644
  
  static inline struct wined3d_adapter_vk *wined3d_adapter_vk(struct wined3d_adapter *adapter)
 -- 
-2.49.0
+2.52.0
 
