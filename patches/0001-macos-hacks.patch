@@ -1,4 +1,4 @@
-From dd856f8ad695eb4ea8cc8d1cf9fa7aba29dd5983 Mon Sep 17 00:00:00 2001
+From 29330ba2da6a516585db69899c058caed89e9c7e Mon Sep 17 00:00:00 2001
 From: dblark <dblark@stu.pku.edu.cn>
 Date: Fri, 28 Nov 2025 01:12:53 +0800
 Subject: [PATCH 1/4] macos hacks
@@ -403,10 +403,10 @@ index 8c7c6cdc8d6..dd27df88990 100644
      sig_act.sa_flags = SA_SIGINFO | SA_RESTART | SA_ONSTACK;
  
 diff --git a/dlls/ntdll/unix/virtual.c b/dlls/ntdll/unix/virtual.c
-index cf3fcd56826..d66aae9a0e8 100644
+index 111849dc966..d6d9d117e91 100644
 --- a/dlls/ntdll/unix/virtual.c
 +++ b/dlls/ntdll/unix/virtual.c
-@@ -4552,6 +4552,27 @@ NTSTATUS virtual_handle_fault( EXCEPTION_RECORD *rec, void *stack )
+@@ -4553,6 +4553,27 @@ NTSTATUS virtual_handle_fault( EXCEPTION_RECORD *rec, void *stack )
          WARN( "treating read fault in a readable page as a write fault, addr %p\n", addr );
          err = EXCEPTION_WRITE_FAULT;
      }
@@ -434,7 +434,7 @@ index cf3fcd56826..d66aae9a0e8 100644
  #endif
  
      if (!is_inside_signal_stack( stack ) && (vprot & VPROT_GUARD))
-@@ -4588,6 +4609,10 @@ NTSTATUS virtual_handle_fault( EXCEPTION_RECORD *rec, void *stack )
+@@ -4589,6 +4610,10 @@ NTSTATUS virtual_handle_fault( EXCEPTION_RECORD *rec, void *stack )
                  ret = STATUS_SUCCESS;
          }
      }
@@ -445,7 +445,7 @@ index cf3fcd56826..d66aae9a0e8 100644
      mutex_unlock( &virtual_mutex );
      rec->ExceptionCode = ret;
      return ret;
-@@ -6716,6 +6741,56 @@ NTSTATUS WINAPI NtReadVirtualMemory( HANDLE process, const void *addr, void *buf
+@@ -6717,6 +6742,56 @@ NTSTATUS WINAPI NtReadVirtualMemory( HANDLE process, const void *addr, void *buf
      return status;
  }
  
@@ -502,7 +502,7 @@ index cf3fcd56826..d66aae9a0e8 100644
  
  /***********************************************************************
   *             NtWriteVirtualMemory   (NTDLL.@)
-@@ -6737,6 +6812,10 @@ NTSTATUS WINAPI NtWriteVirtualMemory( HANDLE process, void *addr, const void *bu
+@@ -6738,6 +6813,10 @@ NTSTATUS WINAPI NtWriteVirtualMemory( HANDLE process, void *addr, const void *bu
              size = reply->written;
          }
          SERVER_END_REQ;

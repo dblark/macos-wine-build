@@ -1,4 +1,4 @@
-From ff347df075f087ffc2b7b26182b6e111633957c2 Mon Sep 17 00:00:00 2001
+From b066756fdc320c2ededfb0d0898e0765b6a024a4 Mon Sep 17 00:00:00 2001
 From: dblark <dblark@stu.pku.edu.cn>
 Date: Fri, 28 Nov 2025 01:18:19 +0800
 Subject: [PATCH 2/4] wined3d moltenvk hacks
@@ -12,7 +12,7 @@ Subject: [PATCH 2/4] wined3d moltenvk hacks
  5 files changed, 79 insertions(+), 8 deletions(-)
 
 diff --git a/dlls/wined3d/adapter_vk.c b/dlls/wined3d/adapter_vk.c
-index ca11ec480d2..5ec21fb852e 100644
+index 86f7971fda7..f8e763f69ba 100644
 --- a/dlls/wined3d/adapter_vk.c
 +++ b/dlls/wined3d/adapter_vk.c
 @@ -2291,6 +2291,7 @@ static void wined3d_adapter_vk_init_d3d_info(struct wined3d_adapter_vk *adapter_
@@ -23,7 +23,7 @@ index ca11ec480d2..5ec21fb852e 100644
  
      get_physical_device_info(adapter_vk, &device_info);
  
-@@ -2365,7 +2366,9 @@ static void wined3d_adapter_vk_init_d3d_info(struct wined3d_adapter_vk *adapter_
+@@ -2366,7 +2367,9 @@ static void wined3d_adapter_vk_init_d3d_info(struct wined3d_adapter_vk *adapter_
  
      d3d_info->multisample_draw_location = WINED3D_LOCATION_TEXTURE_RGB;
  
@@ -34,7 +34,7 @@ index ca11ec480d2..5ec21fb852e 100644
      vk_info->uav_read_without_format = device_info.features2.features.shaderStorageImageReadWithoutFormat;
      vk_info->dynamic_state2 = device_info.dynamic_state2_features.extendedDynamicState2;
      vk_info->dynamic_patch_vertex_count = device_info.dynamic_state2_features.extendedDynamicState2PatchControlPoints;
-@@ -2409,6 +2412,7 @@ static bool wined3d_adapter_vk_init_device_extensions(struct wined3d_adapter_vk
+@@ -2411,6 +2414,7 @@ static bool wined3d_adapter_vk_init_device_extensions(struct wined3d_adapter_vk
          {VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME,       ~0u},
          {VK_EXT_TRANSFORM_FEEDBACK_EXTENSION_NAME,          ~0u},
          {VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME,    ~0u},
@@ -42,7 +42,7 @@ index ca11ec480d2..5ec21fb852e 100644
          {VK_KHR_MAINTENANCE1_EXTENSION_NAME,                VK_API_VERSION_1_1, true},
          {VK_KHR_MAINTENANCE2_EXTENSION_NAME,                VK_API_VERSION_1_1},
          {VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME,VK_API_VERSION_1_2},
-@@ -2556,12 +2560,32 @@ static BOOL wined3d_adapter_vk_init(struct wined3d_adapter_vk *adapter_vk,
+@@ -2560,6 +2564,10 @@ static BOOL wined3d_adapter_vk_init(struct wined3d_adapter_vk *adapter_vk,
      properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
      properties2.pNext = &id_properties;
  
@@ -50,9 +50,10 @@ index ca11ec480d2..5ec21fb852e 100644
 +    adapter_vk->driver_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES;
 +    id_properties.pNext = &adapter_vk->driver_properties;
 +
-     if (vk_info->vk_ops.vkGetPhysicalDeviceProperties2)
-         VK_CALL(vkGetPhysicalDeviceProperties2(adapter_vk->physical_device, &properties2));
-     else
+     minmax = &(VkPhysicalDeviceSamplerFilterMinmaxProperties)
+     {
+         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_FILTER_MINMAX_PROPERTIES,
+@@ -2576,6 +2584,22 @@ static BOOL wined3d_adapter_vk_init(struct wined3d_adapter_vk *adapter_vk,
          VK_CALL(vkGetPhysicalDeviceProperties(adapter_vk->physical_device, &properties2.properties));
      adapter_vk->device_limits = properties2.properties.limits;
  
@@ -155,10 +156,10 @@ index 7fea48d83d2..540a88a022e 100644
  
      if (!wined3d_context_vk_begin_render_pass(context_vk, state, vk_info))
 diff --git a/dlls/wined3d/directx.c b/dlls/wined3d/directx.c
-index c3f381a611d..0225d96bd37 100644
+index 2b673123bb2..22e61ae368e 100644
 --- a/dlls/wined3d/directx.c
 +++ b/dlls/wined3d/directx.c
-@@ -3480,13 +3480,25 @@ done:
+@@ -3481,13 +3481,25 @@ done:
  
  static struct wined3d_adapter *wined3d_adapter_create(unsigned int ordinal, DWORD wined3d_creation_flags)
  {
@@ -186,10 +187,10 @@ index c3f381a611d..0225d96bd37 100644
  
  static void STDMETHODCALLTYPE wined3d_null_wined3d_object_destroyed(void *parent) {}
 diff --git a/dlls/wined3d/swapchain.c b/dlls/wined3d/swapchain.c
-index a1000ec2393..eeaf1e2e2cf 100644
+index 0e3cc466d92..72dd00c5eba 100644
 --- a/dlls/wined3d/swapchain.c
 +++ b/dlls/wined3d/swapchain.c
-@@ -917,7 +917,13 @@ static HRESULT wined3d_swapchain_vk_create_vulkan_swapchain(struct wined3d_swapc
+@@ -947,7 +947,13 @@ static HRESULT wined3d_swapchain_vk_create_vulkan_swapchain(struct wined3d_swapc
          goto fail;
      }
  
@@ -205,10 +206,10 @@ index a1000ec2393..eeaf1e2e2cf 100644
          image_count = surface_caps.minImageCount;
      else if (surface_caps.maxImageCount && image_count > surface_caps.maxImageCount)
 diff --git a/dlls/wined3d/wined3d_vk.h b/dlls/wined3d/wined3d_vk.h
-index 55f40d5a831..9f799a358a0 100644
+index 6fcfe2afbf2..7d7bff13b05 100644
 --- a/dlls/wined3d/wined3d_vk.h
 +++ b/dlls/wined3d/wined3d_vk.h
-@@ -654,7 +654,8 @@ struct wined3d_context_vk
+@@ -655,7 +655,8 @@ struct wined3d_context_vk
  
      uint32_t update_compute_pipeline : 1;
      uint32_t update_stream_output : 1;
@@ -218,7 +219,7 @@ index 55f40d5a831..9f799a358a0 100644
  
      struct
      {
-@@ -806,6 +807,7 @@ struct wined3d_adapter_vk
+@@ -807,6 +808,7 @@ struct wined3d_adapter_vk
  
      VkPhysicalDeviceLimits device_limits;
      VkPhysicalDeviceMemoryProperties memory_properties;
