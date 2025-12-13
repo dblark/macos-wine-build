@@ -9,7 +9,7 @@ export BUILDROOT=$ROOT/build
 export INSTALLROOT=$ROOT/install
 export SOURCESROOT=$ROOT/sources
 
-export WINE_VERSION="wine-11.0-rc1"
+export WINE_VERSION="wine-11.0-rc2"
 export WINE_MONO_VERSION="wine-mono-10.4.0"
 export WINE_GECKO_VERSION="wine-gecko-2.47.4"
 

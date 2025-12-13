@@ -1,4 +1,4 @@
-From b066756fdc320c2ededfb0d0898e0765b6a024a4 Mon Sep 17 00:00:00 2001
+From 9889cc9fd199dfe75c26db4d791cfcb0d1651b79 Mon Sep 17 00:00:00 2001
 From: dblark <dblark@stu.pku.edu.cn>
 Date: Fri, 28 Nov 2025 01:18:19 +0800
 Subject: [PATCH 2/4] wined3d moltenvk hacks

@@ -1,0 +1,63 @@
+From 2726bc242b8328f85ae94c1faab86a7a28859afd Mon Sep 17 00:00:00 2001
+From: dblark <dblark@stu.pku.edu.cn>
+Date: Sat, 13 Dec 2025 23:09:20 +0800
+Subject: [PATCH 4/4] add winemetal stub
+
+---
+ configure                     | 2 ++
+ configure.ac                  | 1 +
+ dlls/winemetal/Makefile.in    | 1 +
+ dlls/winemetal/winemetal.spec | 1 +
+ 4 files changed, 5 insertions(+)
+ create mode 100644 dlls/winemetal/Makefile.in
+ create mode 100644 dlls/winemetal/winemetal.spec
+
+diff --git a/configure b/configure
+index bbb37ad7588..4fb2d015b72 100755
+--- a/configure
++++ b/configure
+@@ -1547,6 +1547,7 @@ enable_winegstreamer
+ enable_winehid_sys
+ enable_winemac_drv
+ enable_winemapi
++enable_winemetal
+ enable_wineoss_drv
+ enable_wineps_drv
+ enable_winepulse_drv
+@@ -23222,6 +23223,7 @@ wine_fn_config_makefile dlls/winegstreamer enable_winegstreamer
+ wine_fn_config_makefile dlls/winehid.sys enable_winehid_sys
+ wine_fn_config_makefile dlls/winemac.drv enable_winemac_drv
+ wine_fn_config_makefile dlls/winemapi enable_winemapi
++wine_fn_config_makefile dlls/winemetal enable_winemetal
+ wine_fn_config_makefile dlls/wineoss.drv enable_wineoss_drv
+ wine_fn_config_makefile dlls/wineps.drv enable_wineps_drv
+ wine_fn_config_makefile dlls/wineps16.drv16 enable_win16
+diff --git a/configure.ac b/configure.ac
+index 1d3165dff84..4928f5ca081 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -3364,6 +3364,7 @@ WINE_CONFIG_MAKEFILE(dlls/winegstreamer)
+ WINE_CONFIG_MAKEFILE(dlls/winehid.sys)
+ WINE_CONFIG_MAKEFILE(dlls/winemac.drv)
+ WINE_CONFIG_MAKEFILE(dlls/winemapi)
++WINE_CONFIG_MAKEFILE(dlls/winemetal)
+ WINE_CONFIG_MAKEFILE(dlls/wineoss.drv)
+ WINE_CONFIG_MAKEFILE(dlls/wineps.drv)
+ WINE_CONFIG_MAKEFILE(dlls/wineps16.drv16)
+diff --git a/dlls/winemetal/Makefile.in b/dlls/winemetal/Makefile.in
+new file mode 100644
+index 00000000000..5f8ab6f673a
+--- /dev/null
++++ b/dlls/winemetal/Makefile.in
+@@ -0,0 +1 @@
++MODULE = winemetal.dll
+diff --git a/dlls/winemetal/winemetal.spec b/dlls/winemetal/winemetal.spec
+new file mode 100644
+index 00000000000..9ccfb1a000b
+--- /dev/null
++++ b/dlls/winemetal/winemetal.spec
+@@ -0,0 +1 @@
++@ stub WineMetalEntry
+-- 
+2.52.0
+
